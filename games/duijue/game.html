@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三张对决 · 轮流弃牌</title>
+<style>
+:root{
+  --cw:98px; --ch:138px;
+  --cwo:80px; --cho:113px;
+  --gold:#e3c07c;
+  --gold-dim:rgba(227,192,124,.32);
+  --ink:#18222c;
+  --red:#c53a30;
+  --text:#e9f3ee;
+  --muted:#93aea3;
+  --p0:#ec6a5c;
+  --p1:#63a0e8;
+  --panel:rgba(6,28,22,.55);
+  --line:rgba(255,255,255,.11);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 700px at 20% -10%, rgba(30,120,90,.35), transparent 60%),
+    radial-gradient(900px 600px at 90% 110%, rgba(20,60,90,.4), transparent 60%),
+    linear-gradient(160deg,#071612 0%,#050d0b 60%,#040809 100%);
+  min-height:100%;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.35;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:26px 26px;
+}
+.app{
+  position:relative;max-width:1180px;margin:0 auto;padding:22px 20px 40px;
+  display:grid;grid-template-columns:minmax(0,1fr) 288px;gap:18px;align-items:start;
+}
+
+/* ---------- 顶部 ---------- */
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:2px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{
+  font-size:22px;font-weight:800;letter-spacing:.5px;
+  background:linear-gradient(92deg,#fff 10%,var(--gold) 90%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.brand .sub{font-size:12px;color:var(--muted);letter-spacing:2px}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.btn{
+  font:inherit;font-size:13px;color:var(--text);cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);
+  padding:8px 14px;border-radius:10px;transition:.18s;white-space:nowrap;
+}
+.btn:hover{background:rgba(255,255,255,.11);border-color:var(--gold-dim);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn.on{background:rgba(227,192,124,.16);border-color:var(--gold-dim);color:var(--gold)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none;background:rgba(255,255,255,.03);box-shadow:none}
+.btn.primary{
+  background:linear-gradient(180deg,#eccc8b,#c9a45c);
+  border:none;color:#2a1d05;font-weight:700;
+  box-shadow:0 6px 18px rgba(201,164,92,.28);
+}
+.btn.primary:hover{box-shadow:0 8px 24px rgba(201,164,92,.4)}
+.btn.pulse{animation:btnPulse 1.5s ease infinite}
+@keyframes btnPulse{0%,100%{box-shadow:0 6px 18px rgba(201,164,92,.28)}50%{box-shadow:0 6px 26px rgba(201,164,92,.72)}}
+.btn.skill{background:rgba(110,120,240,.14);border-color:rgba(150,160,255,.38);color:#c3c9ff}
+.btn.skill:hover{background:rgba(110,120,240,.24)}
+.btn.skill.heal{background:rgba(70,200,140,.13);border-color:rgba(90,220,160,.4);color:#8ce8b8}
+.btn.skill.heal:hover{background:rgba(70,200,140,.22)}
+.btn.skill.letter{background:rgba(200,70,50,.16);border-color:rgba(255,150,120,.4);color:#ffb3a0}
+.btn.skill.letter:hover{background:rgba(200,70,50,.26)}
+
+/* ---------- 牌桌 ---------- */
+.table{
+  position:relative;border-radius:26px;padding:20px 20px 18px;
+  background:radial-gradient(120% 95% at 50% -10%, #1a7357 0%, #0f4e3b 44%, #072a21 100%);
+  border:1px solid rgba(227,192,124,.24);
+  box-shadow:inset 0 0 90px rgba(0,0,0,.5), 0 26px 60px rgba(0,0,0,.42);
+  overflow:hidden;
+}
+.table::after{
+  content:"";position:absolute;inset:11px;border-radius:19px;pointer-events:none;
+  border:1px solid rgba(227,192,124,.16);
+}
+.zone{display:flex;align-items:center;justify-content:center;gap:22px;position:relative;z-index:2;min-width:0}
+.zone.bottom{flex-direction:row-reverse}
+/* 手牌多的时候自动缩小、必要时换行，永远不出牌桌 */
+.table.hand-5{--cw:80px;--ch:113px}
+.table.hand-7{--cw:66px;--ch:93px}
+.table.hand-10{--cw:54px;--ch:76px}
+.table.hand-5 .corner b,.table.hand-7 .corner b,.table.hand-10 .corner b{font-size:calc(var(--cw) * .24)}
+.table.hand-10 .pip{font-size:calc(var(--cw) * .46)}
+.who{display:flex;align-items:center;gap:11px}
+.avatar{
+  width:48px;height:48px;flex:none;border-radius:15px;display:grid;place-items:center;
+  font-family:Georgia,"Times New Roman",serif;font-weight:800;font-size:23px;
+  background:rgba(0,0,0,.28);border:1px solid var(--line);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.4);transition:.25s;
+}
+.avatar.p0{color:#f6a196;box-shadow:inset 0 0 18px rgba(236,106,92,.22),0 0 0 1px rgba(236,106,92,.28)}
+.avatar.p1{color:#a6cdfa;box-shadow:inset 0 0 18px rgba(99,160,232,.22),0 0 0 1px rgba(99,160,232,.28)}
+.who.active .avatar{transform:scale(1.06);background:rgba(227,192,124,.16)}
+.who.active .avatar.p0{box-shadow:0 0 0 2px var(--p0),0 0 22px rgba(236,106,92,.5)}
+.who.active .avatar.p1{box-shadow:0 0 0 2px var(--p1),0 0 22px rgba(99,160,232,.5)}
+.who .nm{font-size:14px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.who .st{font-size:11.5px;color:var(--muted);margin-top:3px;min-height:15px;letter-spacing:.3px;white-space:nowrap}
+.zone.top .who{flex-direction:column;align-items:flex-start}
+.zone.bottom .who{flex-direction:column;align-items:flex-end;text-align:right}
+
+.hand{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:100%;row-gap:12px}
+.table.hand-7 .hand,.table.hand-10 .hand{gap:10px}
+.table.hand-10 .hand{gap:8px}
+.slot{width:var(--cw);height:var(--ch);border-radius:12px;position:relative;flex:none}
+.slot.empty{border:1px dashed rgba(255,255,255,.15);background:rgba(0,0,0,.12)}
+.zone.top .slot{width:var(--cwo);height:var(--cho)}
+/* 对方手牌：一张牌都不显示 */
+.hidden-tile{
+  height:var(--cwo);min-width:calc(var(--cwo) * 3 + 28px);
+  border:1px dashed rgba(227,192,124,.22);border-radius:12px;
+  background:rgba(0,0,0,.18);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  color:rgba(227,192,124,.6);font-size:12px;letter-spacing:1.5px;
+}
+.hidden-tile i{font-style:normal;font-size:19px;opacity:.75}
+
+/* ---------- 中央 ---------- */
+.center{display:flex;align-items:center;justify-content:center;gap:36px;padding:22px 0 20px;position:relative;z-index:2}
+.pile{display:flex;flex-direction:column;align-items:center;gap:9px}
+.pile .cap{font-size:11px;color:var(--muted);letter-spacing:1.2px}
+.pile .box{position:relative;width:var(--cwo);height:var(--cho)}
+.stack{position:absolute;inset:0;border-radius:9px;border:1px solid rgba(227,192,124,.42);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.075) 0 5px, transparent 5px 10px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.075) 0 5px, transparent 5px 10px),
+    linear-gradient(158deg,#1d7157,#0c3d30);
+  box-shadow:0 5px 14px rgba(0,0,0,.35);
+}
+.stack i{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;color:rgba(227,192,124,.75);font-size:17px}
+.stack.d0{transform:translate(5px,5px)}
+.stack.d1{transform:translate(3px,3px)}
+.stack.d2{transform:translate(1.5px,1.5px)}
+.count{
+  position:absolute;right:-11px;bottom:-11px;z-index:5;
+  background:#0c3428;border:1px solid var(--gold-dim);color:var(--gold);
+  font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;
+}
+.pile .box.discard{width:var(--cw);height:var(--ch)}
+
+/* 牌堆用完 → 把弃牌堆洗回来 时的动效 */
+#deckZone{position:relative}
+.pilemsg{
+  position:absolute;top:100%;left:50%;margin-top:2px;pointer-events:none;
+  font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;white-space:nowrap;
+  opacity:0;transform:translate(-50%,6px);transition:.25s;
+}
+.pile.reshuffling .pilemsg{opacity:1;transform:translate(-50%,0)}
+.pile.reshuffling .box{animation:shufShake .62s ease-in-out both}
+.pile.reshuffling .stack.d2{box-shadow:0 0 18px rgba(227,192,124,.8),0 5px 14px rgba(0,0,0,.35)}
+.pile.reshuffling .stack i{color:#fff2d2;animation:shufSpin .62s ease-in-out both}
+.pile.reshuffling .count{border-color:var(--gold);box-shadow:0 0 14px rgba(227,192,124,.55)}
+@keyframes shufShake{
+  0%{transform:translate(0,0) rotate(0)}
+  25%{transform:translate(8px,-3px) rotate(-5deg)}
+  50%{transform:translate(-7px,2px) rotate(4deg)}
+  75%{transform:translate(4px,-1px) rotate(-2deg)}
+  100%{transform:translate(0,0) rotate(0)}
+}
+@keyframes shufSpin{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.25)}100%{transform:rotate(360deg) scale(1)}}
+
+.turnbox{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:150px}
+.turnbox .face-emoji{
+  font-size:30px;width:60px;height:60px;border-radius:19px;display:grid;place-items:center;
+  background:rgba(0,0,0,.26);border:1px solid var(--line);transition:.3s;
+}
+.turnbox.p0 .face-emoji{box-shadow:0 0 0 2px var(--p0),0 0 26px rgba(236,106,92,.4)}
+.turnbox.p1 .face-emoji{box-shadow:0 0 0 2px var(--p1),0 0 26px rgba(99,160,232,.4)}
+.turnbox .tl{font-size:13px;letter-spacing:1px;color:var(--text);white-space:nowrap}
+.turnbox .tl b{color:var(--gold)}
+
+/* ---------- 行动条 ---------- */
+.actionbar{
+  margin-top:16px;border-radius:16px;padding:13px 18px;
+  background:var(--panel);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+}
+.banner{display:flex;align-items:center;gap:10px;font-size:14px;min-height:20px}
+.banner b{color:var(--gold)}
+.hintline{font-size:12.5px;color:var(--muted);margin-top:5px}
+.hintline em{font-style:normal;color:var(--gold);font-weight:700}
+.actions{display:flex;gap:9px;align-items:center}
+
+/* ---------- 侧栏 ---------- */
+.side{display:flex;flex-direction:column;gap:16px}
+.card-panel{
+  border-radius:16px;background:var(--panel);border:1px solid var(--line);
+  padding:15px 16px;backdrop-filter:blur(6px);
+}
+.card-panel h3{
+  font-size:12px;letter-spacing:2px;color:var(--gold);font-weight:700;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.card-panel h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold-dim),transparent)}
+#log{height:430px;overflow-y:auto;font-size:12.5px;line-height:1.7;color:#bcd0c6;display:flex;flex-direction:column;gap:6px}
+#log::-webkit-scrollbar{width:5px}
+#log::-webkit-scrollbar-thumb{background:rgba(227,192,124,.28);border-radius:9px}
+#log .row{display:flex;gap:8px;align-items:flex-start;animation:lgIn .3s ease}
+#log .row b{flex:none;font-size:10.5px;padding:2px 6px;border-radius:5px;margin-top:1px;font-weight:700;letter-spacing:.5px}
+#log .row.p0 b{background:rgba(236,106,92,.18);color:#f6a196}
+#log .row.p1 b{background:rgba(99,160,232,.18);color:#a6cdfa}
+#log .row.sys b{background:rgba(227,192,124,.16);color:var(--gold)}
+@keyframes lgIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+
+/* ---------- 扑克牌 ---------- */
+.card{width:100%;height:100%;position:relative;transition:transform .22s cubic-bezier(.3,1.2,.4,1)}
+.card .inner{position:relative;width:100%;height:100%}
+.face{position:absolute;inset:0;border-radius:10px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.38)}
+.face.front{background:linear-gradient(168deg,#fffdf6,#f2ebdc);border:1px solid rgba(0,0,0,.12)}
+.face.front.black{color:var(--ink)}
+.face.front.red{color:var(--red)}
+.corner{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:1;font-family:Georgia,"Times New Roman",serif}
+.corner b{font-size:calc(var(--cw) * .21);font-weight:700}
+.corner i{font-style:normal;font-size:calc(var(--cw) * .17);margin-top:1px}
+.corner.tl{top:6px;left:6px}
+.corner.br{bottom:6px;right:6px;transform:rotate(180deg)}
+.pip{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cw) * .5);opacity:.92}
+.zone.top .corner b{font-size:calc(var(--cwo) * .21)}
+.zone.top .corner i{font-size:calc(var(--cwo) * .17)}
+.zone.top .pip{font-size:calc(var(--cwo) * .5)}
+
+/* ---------- 攻击牌：每个花色一张，没有点数 ---------- */
+.face.front.atk{
+  background:linear-gradient(165deg,#6b1a23 0%,#3d0d13 55%,#22060a 100%);
+  border:1px solid rgba(255,150,120,.5);
+  color:#ffd9c9;
+}
+.face.front.atk .corner b{font-size:calc(var(--cw) * .2);color:#ffb3a0}
+.face.front.atk .corner i{color:#ff8d78}
+.atk-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.atk-core .sw{font-size:calc(var(--cw) * .36);line-height:1;color:#ffe2b4;text-shadow:0 0 20px rgba(255,120,90,.8)}
+.atk-core .dmg{font-size:calc(var(--cw) * .16);font-weight:700;letter-spacing:.5px;color:#ffb3a0}
+.zone.top .face.front.atk .corner b{font-size:calc(var(--cwo) * .2)}
+.zone.top .face.front.atk .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .atk-core .sw{font-size:calc(var(--cwo) * .36)}
+.zone.top .atk-core .dmg{font-size:calc(var(--cwo) * .16)}
+.card.atk.selected .face.front{box-shadow:0 0 0 3px #ff9b83,0 14px 26px rgba(0,0,0,.45)}
+.card.atk.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 闪避牌：每个花色一张，没有点数 ---------- */
+.face.front.dodge{
+  background:linear-gradient(165deg,#12414f 0%,#0b2b38 55%,#061a24 100%);
+  border:1px solid rgba(120,215,255,.5);
+  color:#d6f2ff;
+}
+.face.front.dodge .corner b{font-size:calc(var(--cw) * .195);color:#9fe0ff}
+.face.front.dodge .corner i{color:#6fc7ef}
+.dodge-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.dodge-core .sh{font-size:calc(var(--cw) * .32);line-height:1;text-shadow:0 0 20px rgba(90,190,255,.85)}
+.dodge-core .tag{font-size:calc(var(--cw) * .15);font-weight:700;letter-spacing:1px;color:#9fe0ff}
+.zone.top .face.front.dodge .corner b{font-size:calc(var(--cwo) * .195)}
+.zone.top .face.front.dodge .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .dodge-core .sh{font-size:calc(var(--cwo) * .32)}
+.zone.top .dodge-core .tag{font-size:calc(var(--cwo) * .15)}
+.card.dodge.selected .face.front{box-shadow:0 0 0 3px #8fd8ff,0 14px 26px rgba(0,0,0,.45)}
+.card.dodge.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 偷取牌：无花色、无点数 ---------- */
+.face.front.steal{
+  background:linear-gradient(165deg,#412c6b 0%,#261843 55%,#140c27 100%);
+  border:1px solid rgba(190,160,255,.5);
+  color:#e8dcff;
+}
+.face.front.steal .corner b{font-size:calc(var(--cw) * .19);color:#c9b4ff}
+.face.front.steal .corner i{color:#a68cff}
+.steal-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.steal-core .hd{font-size:calc(var(--cw) * .3);line-height:1;text-shadow:0 0 20px rgba(170,130,255,.85)}
+.steal-core .tag{font-size:calc(var(--cw) * .15);font-weight:700;letter-spacing:1px;color:#c9b4ff}
+.zone.top .face.front.steal .corner b{font-size:calc(var(--cwo) * .19)}
+.zone.top .face.front.steal .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .steal-core .hd{font-size:calc(var(--cwo) * .3)}
+.zone.top .steal-core .tag{font-size:calc(var(--cwo) * .15)}
+.card.steal.selected .face.front{box-shadow:0 0 0 3px #b9a3ff,0 14px 26px rgba(0,0,0,.45)}
+.card.steal.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 抵消牌：无花色、无点数，能抵消掉一次「偷取」 ---------- */
+.face.front.neg{
+  background:linear-gradient(165deg,#5d3c12 0%,#3b2508 55%,#201303 100%);
+  border:1px solid rgba(255,205,130,.55);
+  color:#ffeccd;
+}
+.face.front.neg .corner b{font-size:calc(var(--cw) * .19);color:#ffd79a}
+.face.front.neg .corner i{color:#eeb367}
+.neg-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.neg-core .nx{font-size:calc(var(--cw) * .3);line-height:1;text-shadow:0 0 20px rgba(255,190,90,.9)}
+.neg-core .tag{font-size:calc(var(--cw) * .15);font-weight:700;letter-spacing:1px;color:#ffd79a}
+.zone.top .face.front.neg .corner b{font-size:calc(var(--cwo) * .19)}
+.zone.top .face.front.neg .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .neg-core .nx{font-size:calc(var(--cwo) * .3)}
+.zone.top .neg-core .tag{font-size:calc(var(--cwo) * .15)}
+.card.neg.selected .face.front{box-shadow:0 0 0 3px #ffd79a,0 14px 26px rgba(0,0,0,.45)}
+.card.neg.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 恢复牌：♥ / ♦ 各一张，没有点数，打出后回 1 滴血 ---------- */
+.face.front.heal{
+  background:linear-gradient(165deg,#0f5140 0%,#0a3327 55%,#041a12 100%);
+  border:1px solid rgba(110,235,175,.5);
+  color:#d8ffe9;
+}
+.face.front.heal .corner b{font-size:calc(var(--cw) * .195);color:#8ce8b8}
+.face.front.heal .corner i{color:#5cd69b}
+.heal-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.heal-core .pl{font-size:calc(var(--cw) * .3);line-height:1;color:#b6ffd8;text-shadow:0 0 20px rgba(90,230,160,.85)}
+.heal-core .tag{font-size:calc(var(--cw) * .145);font-weight:700;letter-spacing:.5px;color:#8ce8b8}
+.zone.top .face.front.heal .corner b{font-size:calc(var(--cwo) * .195)}
+.zone.top .face.front.heal .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .heal-core .pl{font-size:calc(var(--cwo) * .3)}
+.zone.top .heal-core .tag{font-size:calc(var(--cwo) * .145)}
+.card.heal.selected .face.front{box-shadow:0 0 0 3px #8ce8b8,0 14px 26px rgba(0,0,0,.45)}
+.card.heal.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 双倍牌：♠ / ♣ 各一张，没有点数，打出后下一次攻击伤害翻倍 ---------- */
+.face.front.dbl{
+  background:linear-gradient(165deg,#5d1440 0%,#3a0c27 55%,#1e0513 100%);
+  border:1px solid rgba(255,130,200,.5);
+  color:#ffd6ee;
+}
+.face.front.dbl .corner b{font-size:calc(var(--cw) * .195);color:#ffa6d8}
+.face.front.dbl .corner i{color:#f07cc0}
+.dbl-core{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.dbl-core .x2{font-size:calc(var(--cw) * .34);line-height:1;font-weight:800;color:#ffe3f3;text-shadow:0 0 20px rgba(255,110,190,.9)}
+.dbl-core .tag{font-size:calc(var(--cw) * .145);font-weight:700;letter-spacing:.5px;color:#ffa6d8}
+.zone.top .face.front.dbl .corner b{font-size:calc(var(--cwo) * .195)}
+.zone.top .face.front.dbl .corner i{font-size:calc(var(--cwo) * .16)}
+.zone.top .dbl-core .x2{font-size:calc(var(--cwo) * .34)}
+.zone.top .dbl-core .tag{font-size:calc(var(--cwo) * .145)}
+.card.dbl.selected .face.front{box-shadow:0 0 0 3px #ffa6d8,0 14px 26px rgba(0,0,0,.45)}
+.card.dbl.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+
+/* ---------- 牌背：偷牌时对方手牌以「暗牌」呈现，不露牌面 ---------- */
+.face.back{
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 5px, transparent 5px 10px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.07) 0 5px, transparent 5px 10px),
+    linear-gradient(158deg,#1d7157,#0b3629);
+  border:1px solid rgba(227,192,124,.45);
+  display:grid;place-items:center;
+}
+.face.back i{
+  font-style:normal;font-size:19px;color:rgba(227,192,124,.8);
+  width:30px;height:30px;border:1px solid rgba(227,192,124,.4);border-radius:50%;
+  display:grid;place-items:center;
+}
+.zone.top .face.back i{font-size:calc(var(--cwo) * .26);width:calc(var(--cwo) * .42);height:calc(var(--cwo) * .42)}
+.card.facedown{cursor:pointer}
+.card.facedown.selectable .face.back{
+  box-shadow:0 0 0 2px rgba(227,192,124,.8),0 10px 22px rgba(0,0,0,.42);
+  animation:pickPulse 1.4s ease infinite;
+}
+@keyframes pickPulse{0%,100%{filter:none}50%{filter:brightness(1.22)}}
+/* 攻击牌没有点数：只能打出去，不能当普通牌弃掉 */
+
+/* ---------- 血量 ---------- */
+.hp{display:flex;gap:3px;margin-top:5px;line-height:1}
+.hp i{
+  font-style:normal;font-size:14px;color:#e8544a;
+  text-shadow:0 0 9px rgba(236,106,92,.65);transition:.25s;
+}
+.hp i.off{color:rgba(255,255,255,.15);text-shadow:none}
+.zone.bottom .hp{justify-content:flex-end}
+
+/* ---------- 技能徽章 ---------- */
+.skillchip{
+  display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+  font-size:11px;letter-spacing:.3px;padding:3px 9px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--muted);
+  white-space:nowrap;
+}
+.skillchip b{font-weight:800;font-size:11.5px}
+.skillchip.heal{border-color:rgba(90,220,160,.42);background:rgba(70,200,140,.12);color:#8ce8b8}
+/* 「×2 双倍」待发徽章：打出双倍牌后，下一次攻击伤害翻倍 */
+.skillchip.dbl{border-color:rgba(255,130,200,.5);background:rgba(255,90,170,.14);color:#ffb8dc;animation:dblGlow 1.9s ease infinite}
+@keyframes dblGlow{0%,100%{filter:none}50%{filter:brightness(1.28)}}
+.skillchip.letter{border-color:rgba(255,150,120,.42);background:rgba(200,70,50,.14);color:#ffb3a0}
+.skillchip.cancel{border-color:rgba(150,160,255,.42);background:rgba(110,120,240,.14);color:#b7bfff}
+.skillchip.spent{opacity:.38}
+
+/* ---------- 回血 ---------- */
+@keyframes healPulse{0%,100%{transform:none}45%{transform:scale(1.035)}}
+.zone.heal{animation:healPulse .6s ease}
+.zone.heal::before{
+  content:"";position:absolute;inset:-10px;border-radius:20px;pointer-events:none;z-index:1;
+  background:radial-gradient(circle at 50% 50%, rgba(70,220,150,.42), transparent 68%);
+}
+.heal-pop{
+  position:absolute;left:50%;top:0;z-index:20;pointer-events:none;
+  font-weight:800;font-size:21px;color:#7fe6b0;white-space:nowrap;
+  text-shadow:0 3px 16px rgba(0,0,0,.75);
+  animation:dmgUp 1s cubic-bezier(.2,.9,.3,1) forwards;
+}
+
+/* ---------- 被攻击 ---------- */
+@keyframes hitShake{
+  0%,100%{transform:none}
+  18%{transform:translateX(-8px)}
+  38%{transform:translateX(7px)}
+  58%{transform:translateX(-5px)}
+  78%{transform:translateX(3px)}
+}
+.zone.hit{animation:hitShake .5s ease}
+.zone.hit::before{
+  content:"";position:absolute;inset:-10px;border-radius:20px;pointer-events:none;z-index:1;
+  background:radial-gradient(circle at 50% 50%, rgba(255,60,40,.42), transparent 68%);
+}
+.dmg-pop{
+  position:absolute;left:50%;top:0;z-index:20;pointer-events:none;
+  font-family:Georgia,"Times New Roman",serif;font-weight:800;font-size:27px;color:#ff6b57;
+  text-shadow:0 3px 16px rgba(0,0,0,.7);
+  animation:dmgUp 1s cubic-bezier(.2,.9,.3,1) forwards;
+}
+@keyframes dmgUp{
+  0%{opacity:0;transform:translate(-50%,14px) scale(.6)}
+  25%{opacity:1;transform:translate(-50%,-6px) scale(1.12)}
+  100%{opacity:0;transform:translate(-50%,-40px) scale(1)}
+}
+/* ---------- 被闪避掉 ---------- */
+@keyframes blockPulse{0%,100%{transform:none}45%{transform:scale(1.035)}}
+.zone.block{animation:blockPulse .55s ease}
+.zone.block::before{
+  content:"";position:absolute;inset:-10px;border-radius:20px;pointer-events:none;z-index:1;
+  background:radial-gradient(circle at 50% 50%, rgba(90,190,255,.42), transparent 68%);
+}
+.block-pop{
+  position:absolute;left:50%;top:0;z-index:20;pointer-events:none;
+  font-weight:800;font-size:21px;color:#8fd8ff;white-space:nowrap;
+  text-shadow:0 3px 16px rgba(0,0,0,.75);
+  animation:dmgUp 1s cubic-bezier(.2,.9,.3,1) forwards;
+}
+.zone.dead .who,.zone.dead .hand{opacity:.42;filter:grayscale(.65)}
+
+/* 闪避判定时，被攻击方手牌区里「其余牌」的占位 */
+.hand .note-tile{
+  height:var(--cwo);min-width:calc(var(--cwo) * 1.7);
+  border:1px dashed rgba(255,255,255,.16);border-radius:12px;background:rgba(0,0,0,.16);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  color:rgba(255,255,255,.42);font-size:11.5px;letter-spacing:.6px;padding:0 12px;line-height:1.5;
+}
+
+.card.selectable{cursor:pointer}
+.card.selectable:hover{transform:translateY(-13px)}
+.card.selected{transform:translateY(-20px)}
+.card.selected .face.front{box-shadow:0 0 0 3px var(--gold),0 14px 26px rgba(0,0,0,.45)}
+/* 本回合开始刚补进来的牌 */
+.card.is-draw .face.front{box-shadow:0 0 0 2.5px rgba(227,192,124,.9),0 0 24px rgba(227,192,124,.45)}
+.card.is-draw::after{
+  content:"本回合补进";position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(180deg,#eccc8b,#c9a45c);color:#2a1d05;
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;
+  white-space:nowrap;z-index:9;letter-spacing:.5px;
+  box-shadow:0 3px 10px rgba(0,0,0,.35);
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(-32px) scale(.86)}to{opacity:1;transform:none}}
+.card.is-new{animation:cardIn .5s cubic-bezier(.2,.9,.25,1.1)}
+
+/* ---------- 交接遮罩 ---------- */
+.handoff{
+  position:fixed;inset:0;z-index:120;display:none;place-items:center;padding:22px;
+  background:
+    radial-gradient(900px 600px at 50% 40%, rgba(16,66,50,.96), rgba(4,12,10,.995) 70%),
+    #040c0a;
+}
+.handoff.show{display:grid}
+.ho-box{
+  width:min(520px,100%);text-align:center;border-radius:24px;padding:38px 30px 32px;
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(227,192,124,.28);
+  box-shadow:0 30px 90px rgba(0,0,0,.6);
+  animation:hoIn .42s cubic-bezier(.2,.9,.3,1.05);
+}
+@keyframes hoIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:none}}
+.ho-avatar{
+  width:88px;height:88px;margin:0 auto 18px;border-radius:28px;display:grid;place-items:center;
+  font-family:Georgia,"Times New Roman",serif;font-weight:800;font-size:44px;
+  background:rgba(0,0,0,.3);border:1px solid var(--line);transition:.35s;
+}
+.ho-avatar.p0{color:#f6a196;box-shadow:0 0 0 2px var(--p0),0 0 34px rgba(236,106,92,.45)}
+.ho-avatar.p1{color:#a6cdfa;box-shadow:0 0 0 2px var(--p1),0 0 34px rgba(99,160,232,.45)}
+.ho-title{font-size:24px;font-weight:800;letter-spacing:1px;margin-bottom:9px}
+.ho-title b{color:var(--gold)}
+.ho-sub{font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:9px}
+.ho-note{font-size:12px;color:#7d968c;margin-bottom:24px;letter-spacing:.3px}
+.ho-count{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--gold);
+  background:rgba(227,192,124,.1);border:1px solid var(--gold-dim);border-radius:999px;padding:5px 13px;margin-bottom:24px}
+.ho-box .btn.primary{font-size:14px;padding:12px 26px;border-radius:12px}
+.ho-meta{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
+.ho-meta .ho-count{margin-bottom:0}
+.ho-skill{
+  display:inline-flex;align-items:center;gap:7px;font-size:12.5px;
+  color:#c3c9ff;background:rgba(110,120,240,.12);
+  border:1px solid rgba(150,160,255,.3);border-radius:999px;padding:5px 13px;
+}
+.ho-skill.heal{color:#8ce8b8;background:rgba(70,200,140,.12);border-color:rgba(90,220,160,.34)}
+.ho-skill.letter{color:#ffb3a0;background:rgba(200,70,50,.14);border-color:rgba(255,150,120,.34)}
+.ho-skill b{font-weight:800}
+
+@media(max-width:1080px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  #log{height:220px}
+}
+@media(max-width:720px){
+  :root{--cw:74px;--ch:104px;--cwo:60px;--cho:84px}
+  .zone{gap:12px}
+  .hand{gap:9px}
+  .center{gap:18px;padding:16px 0}
+  .brand h1{font-size:18px}
+  .who .nm{font-size:12.5px}
+  .turnbox{min-width:104px}
+  .turnbox .face-emoji{width:46px;height:46px;font-size:22px}
+  .ho-box{padding:30px 20px 26px}
+  .ho-avatar{width:70px;height:70px;font-size:34px;margin-bottom:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>三张对决</h1>
+      <span class="sub">DRAW · DISCARD · ATTACK · DODGE · STEAL · SKILL</span>
+    </div>
+    <div class="tools">
+      <button class="btn on" id="soundBtn">🔊 音效</button>
+      <button class="btn primary" id="newBtn">重新发牌</button>
+    </div>
+  </div>
+
+  <div class="table" id="gameTable">
+    <div class="zone top" id="zoneTop"></div>
+
+    <div class="center">
+      <div class="pile" id="deckZone">
+        <div class="cap">牌堆</div>
+        <div class="box">
+          <div class="stack d0"></div>
+          <div class="stack d1"></div>
+          <div class="stack d2"><i>◆</i></div>
+          <div class="count" id="deckCount">76</div>
+        </div>
+        <div class="pilemsg" id="deckMsg"></div>
+      </div>
+
+      <div class="turnbox" id="turnBox">
+        <div class="face-emoji" id="turnEmoji">—</div>
+        <div class="tl" id="turnLabel">等待发牌</div>
+      </div>
+
+      <div class="pile">
+        <div class="cap">弃牌堆</div>
+        <div class="box discard" id="discardBox"></div>
+        <div class="count" id="discardCount">0</div>
+      </div>
+    </div>
+
+    <div class="zone bottom" id="zoneBottom"></div>
+  </div>
+
+  <div class="actionbar">
+    <div>
+      <div class="banner" id="banner">点击「重新发牌」开始</div>
+      <div class="hintline" id="hintline">双方各发 3 张、各 3 滴血，各随机抽 1 个技能；每回合开始手牌补至 4 张，然后弃 1 张、打 1 张攻击、打出 1 张偷取、打出 1 张恢复（回 1 滴血）或打出 1 张双倍（下次攻击翻倍）；被攻击时可用闪避牌挡下、被偷时可用抵消牌废掉；牌堆翻完后弃牌堆会自动洗回来</div>
+    </div>
+    <div class="actions">
+      <button class="btn skill" id="skillBtn" hidden>技能</button>
+      <button class="btn primary" id="confirmBtn" disabled>确认弃牌</button>
+      <button class="btn" id="endBtn" disabled>结束回合 →</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card-panel">
+      <h3>弃牌记录</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 交接遮罩：防止看到下家手牌 -->
+<div class="handoff" id="handoff">
+  <div class="ho-box">
+    <div class="ho-avatar p0" id="hoAvatar">1</div>
+    <div class="ho-title" id="hoTitle">轮到 <b>玩家一</b></div>
+    <div class="ho-sub" id="hoSub">请把设备交给玩家一</div>
+    <div class="ho-meta">
+      <div class="ho-count" id="hoCount">🂠 手牌 3 张</div>
+      <div class="ho-skill" id="hoSkill">技能 —</div>
+    </div>
+    <div><button class="btn primary" id="hoBtn">查看我的手牌</button></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   三张对决 —— 两名玩家各抽三张，轮流弃牌 / 攻击 / 闪避 / 偷取 / 抵消 / 恢复 / 双倍 / 技能
+   双人同屏 · 手牌互不可见
+   · 每回合开始时把手牌补至 4 张，然后五选一：弃 1 张牌，打 1 张攻击（对手掉 1 滴血），
+     打出 1 张偷取（从对方手牌里盲挑 1 张拿走），打出 1 张恢复（自己回 1 滴血），
+     或打出 1 张双倍（之后第一次打出的攻击伤害翻倍）
+   · 对手打出攻击时，若你手上留着闪避牌，可以把设备递给你挡掉这一次攻击
+   · 对手打出偷取时，若你手上留着抵消牌，可以把设备递给你，用掉它废掉这次偷取
+   · 恢复牌是 ♥ / ♦ 各一张、双倍牌是 ♠ / ♣ 各一张，都没有点数；自己满血时恢复用不出来，
+     已经带着双倍时双倍牌也不再叠加 —— 这两种情况都只能把它当普通牌弃掉
+   · 每人 3 滴血，血量为 0 即出局（回血最多回到 3 滴；双倍攻击掉 2 滴）
+   · 牌堆翻完之后，弃牌堆会整堆洗匀、重新变成牌堆接着用（所以对局几乎只由血量决定胜负）
+   · 开局双方各随机抽 1 个技能：
+       ✚ 治疗     每局限 3 次，弃 1 张红色牌回 1 滴血
+       ⚔ 字母攻击 把 1 张字母牌（J/Q/K/A）当作攻击打出
+       ⊘ 抵消     每局限 1 次，被攻击时抵消这一次攻击
+   ============================================================ */
+
+const SUITS = ['♠','♥','♦','♣'];
+const isRed = s => s === 1 || s === 2;
+const RL = r => ({11:'J',12:'Q',13:'K',14:'A'}[r] || String(r));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const $ = s => document.querySelector(s);
+
+const PLAYERS = [
+  {label:'玩家一', short:'1'},
+  {label:'玩家二', short:'2'}
+];
+
+/* ---------------- 三个技能 ---------------- */
+const SKILLS = {
+  heal:   {icon:'✚', name:'治疗',    cls:'heal',   limit:3,        desc:'弃 1 张红色牌（♥/♦），回 1 滴血'},
+  letter: {icon:'⚔', name:'字母攻击', cls:'letter', limit:Infinity, desc:'把 1 张字母牌（J/Q/K/A）当作攻击打出'},
+  cancel: {icon:'⊘', name:'抵消',    cls:'cancel', limit:1,        desc:'被攻击时抵消这一次攻击，1 滴血都不掉'}
+};
+const SKILL_IDS = ['heal','letter','cancel'];
+const skillOf = p => SKILLS[state.skills[p]] || null;
+/* 技能剩余次数文案 */
+function leftText(p){
+  const s = skillOf(p);
+  if(!s) return '';
+  return s.limit === Infinity ? '不限次' : `剩 ${state.skillLeft[p]} 次`;
+}
+
+let uid = 0;
+
+function makeDeck(){
+  const d = [];
+  for(let s = 0; s < 4; s++) for(let r = 2; r <= 14; r++) d.push({id:'c'+(uid++), r, s});
+  // 每个花色 2 张「攻击」：没有点数，打出打掉对手 1 滴血
+  for(let s = 0; s < 4; s++) for(let k = 0; k < 2; k++) d.push({id:'a'+(uid++), s, atk:true});
+  // 每个花色 1 张「闪避」：没有点数，被攻击时用它挡下这一次攻击
+  for(let s = 0; s < 4; s++) d.push({id:'g'+(uid++), s, dodge:true});
+  // 4 张「偷取」：既没有花色也没有点数，打出后从对方手牌里拿走一张
+  for(let k = 0; k < 4; k++) d.push({id:'t'+(uid++), steal:true});
+  // 4 张「抵消」：既没有花色也没有点数，对方打出「偷取」时用它抵消掉这一次偷取
+  for(let k = 0; k < 4; k++) d.push({id:'n'+(uid++), neg:true});
+  // 2 张「恢复」：♥ 与 ♦ 各一张，没有点数，打出后自己回 1 滴血
+  [1,2].forEach(s => d.push({id:'h'+(uid++), s, heal:true}));
+  // 2 张「双倍」：♠ 与 ♣ 各一张，没有点数，打出后下一次攻击伤害翻倍
+  [0,3].forEach(s => d.push({id:'d'+(uid++), s, dbl:true}));
+  return d;
+}
+function shuffle(a){
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const cardLabel = c => c.atk ? `${SUITS[c.s]}攻击` : c.dodge ? `${SUITS[c.s]}闪避`
+                      : c.steal ? '偷取' : c.neg ? '抵消'
+                      : c.heal ? `${SUITS[c.s]}恢复`
+                      : c.dbl ? `${SUITS[c.s]}双倍` : SUITS[c.s] + RL(c.r);
+const canDiscard = c => !!c && !c.atk;   // 攻击牌没有点数，只能打出去；闪避 / 偷取 / 抵消 / 恢复 / 双倍牌都可以直接弃掉
+const isPlain = c => !!c && !c.atk && !c.dodge && !c.steal && !c.neg && !c.heal && !c.dbl;   // 普通牌（有点数、有花色）
+const isLetter = c => isPlain(c) && c.r >= 11;       // 字母牌：J / Q / K / A
+const isRedPlain = c => isPlain(c) && isRed(c.s);    // 红色牌：♥ / ♦
+/* 带着「双倍」时，下一次打出的攻击伤害翻倍 */
+const atkDmg = p => state.dblReady[p] ? ATK_DMG * 2 : ATK_DMG;
+
+/* ---------------- 状态 ---------------- */
+const state = {
+  deck: [], discard: [], hands: [[],[]],
+  hp: [3,3],            // 每人 3 滴血
+  turn: 0,
+  phase: 'idle',        // idle | handoff | playing | steal | dodge | negate | done
+  selected: null, busy: false,
+  sound: true, userActed: false,
+  lastTurn: 0, notice: '', drawnIds: [],   // 本回合刚补进手牌的那些牌的 id
+  used: false,          // 本回合是否已经行动过（弃 1 张 或 打 1 张攻击，只能二选一）
+  turnAction: null,     // 本回合做了什么：{kind:'discard'|'attack', card}
+  over: null,           // 结束原因：{winner: 0|1|null, reason:''}
+  dodge: null,          // 待对方判定的攻击：{attacker, defender, atkCard}
+  dodgeResolved: false, // 闪避判定已出结果，正在播动效 / 交回设备
+  steal: null,          // 打出偷取牌后，正在挑牌：{thief, victim}
+  negate: null,         // 被偷方正在决定要不要用「抵消」牌挡下：{thief, victim}
+  negateResolved: false,// 抵消判定已出结果，正在播动效 / 交回设备
+  returnTo: 'playing',  // 交回给行动方时要回到哪个阶段：playing（被抵消）| steal（对方放弃抵抗，继续挑牌）
+  dblReady: [false,false], // 是否带着「下一次攻击伤害翻倍」（打完那张攻击就用掉，不叠加）
+  handoffMode: 'start', // 遮罩类型：start | turn | dodge | negate | back
+  skills: [null,null],  // 本局各自抽到的技能
+  skillLeft: [0,0]      // 技能剩余可用次数
+};
+let handEls = new Map();   // 当前行动者的卡牌元素
+let facedownEls = new Map(); // 偷牌时对方「暗牌」的元素
+
+/* ---------------- 音效 ---------------- */
+let actx = null;
+function beep(freq, dur, type = 'sine', vol = .05){
+  if(!state.sound || !state.userActed) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(actx.destination);
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + dur);
+    o.start(); o.stop(actx.currentTime + dur + .02);
+  }catch(e){}
+}
+
+/* ---------------- 卡牌元素 ---------------- */
+const HP_MAX = 3;
+const ATK_DMG = 1;
+const HEAL_HP = 1;     // 「恢复」牌回血点数
+const HAND_SIZE = 4;   // 每个回合开始时把手牌补至 4 张
+const DEAL_SIZE = 3;   // 开局各发 3 张（第一回合开始时补到 4）
+
+function frontHTML(c){
+  const su = SUITS[c.s];
+  if(c.atk){
+    return `<div class="face front atk">
+      <div class="corner tl"><b>攻</b><i>${su}</i></div>
+      <div class="atk-core"><span class="sw">⚔</span><span class="dmg">-${ATK_DMG}</span></div>
+      <div class="corner br"><b>攻</b><i>${su}</i></div>
+    </div>`;
+  }
+  if(c.steal){
+    // 没有花色也没有点数
+    return `<div class="face front steal">
+      <div class="corner tl"><b>偷</b><i>✦</i></div>
+      <div class="steal-core"><span class="hd">🤲</span><span class="tag">偷取</span></div>
+      <div class="corner br"><b>偷</b><i>✦</i></div>
+    </div>`;
+  }
+  if(c.neg){
+    // 没有花色也没有点数
+    return `<div class="face front neg">
+      <div class="corner tl"><b>抵</b><i>✦</i></div>
+      <div class="neg-core"><span class="nx">⛔</span><span class="tag">抵消</span></div>
+      <div class="corner br"><b>抵</b><i>✦</i></div>
+    </div>`;
+  }
+  if(c.dbl){
+    // 有花色（♠ / ♣）、没有点数
+    return `<div class="face front dbl">
+      <div class="corner tl"><b>倍</b><i>${su}</i></div>
+      <div class="dbl-core"><span class="x2">×2</span><span class="tag">双倍</span></div>
+      <div class="corner br"><b>倍</b><i>${su}</i></div>
+    </div>`;
+  }
+  if(c.heal){
+    // 有花色（♥ / ♦）、没有点数
+    return `<div class="face front heal">
+      <div class="corner tl"><b>恢</b><i>${su}</i></div>
+      <div class="heal-core"><span class="pl">✚</span><span class="tag">回血 +1</span></div>
+      <div class="corner br"><b>恢</b><i>${su}</i></div>
+    </div>`;
+  }
+  if(c.dodge){
+    return `<div class="face front dodge">
+      <div class="corner tl"><b>闪</b><i>${su}</i></div>
+      <div class="dodge-core"><span class="sh">🛡</span><span class="tag">闪避</span></div>
+      <div class="corner br"><b>闪</b><i>${su}</i></div>
+    </div>`;
+  }
+  const cls = isRed(c.s) ? 'red' : 'black';
+  const lab = RL(c.r);
+  return `<div class="face front ${cls}">
+      <div class="corner tl"><b>${lab}</b><i>${su}</i></div>
+      <div class="pip">${su}</div>
+      <div class="corner br"><b>${lab}</b><i>${su}</i></div>
+    </div>`;
+}
+function backHTML(){
+  return `<div class="face back"><i>◆</i></div>`;
+}
+function cardEl(c, {isNew = false, faceUp = true, owner = null} = {}){
+  const el = document.createElement('div');
+  el.className = 'card'
+    + (c.atk ? ' atk' : '') + (c.dodge ? ' dodge' : '') + (c.steal ? ' steal' : '')
+    + (c.neg ? ' neg' : '') + (c.heal ? ' heal' : '') + (c.dbl ? ' dbl' : '')
+    + (faceUp ? '' : ' facedown')
+    + (isNew ? ' is-new' : '');
+  el.dataset.id = c.id;
+  const dmgNow = (owner !== null && state.dblReady[owner]) ? ATK_DMG * 2 : ATK_DMG;
+  el.title = !faceUp ? '暗牌'
+           : c.atk ? `${cardLabel(c)} · 打掉对手 ${dmgNow} 滴血${dmgNow > ATK_DMG ? '（×2 双倍生效中）' : ''}`
+           : c.dodge ? `${cardLabel(c)} · 被攻击时挡下这一次攻击`
+           : c.steal ? `${cardLabel(c)} · 从对方手牌里拿走一张`
+           : c.neg ? `${cardLabel(c)} · 被偷时抵消掉这一次偷取`
+           : c.heal ? `${cardLabel(c)} · 打出后自己回 ${HEAL_HP} 滴血`
+           : c.dbl ? `${cardLabel(c)} · 打出后下一次攻击伤害翻倍（${ATK_DMG} → ${ATK_DMG * 2}）`
+           : cardLabel(c);
+  el.innerHTML = `<div class="inner">${faceUp ? frontHTML(c) : backHTML()}</div>`;
+  return el;
+}
+
+/* ---------------- 渲染 ---------------- */
+function playerLabel(p){
+  return PLAYERS[p].label;
+}
+function hpHTML(p){
+  let s = '';
+  for(let i = 0; i < HP_MAX; i++) s += `<i class="${i < state.hp[p] ? '' : 'off'}">♥</i>`;
+  return `<div class="hp" title="血量 ${state.hp[p]} / ${HP_MAX}">${s}</div>`;
+}
+/* 本局抽到的技能（公开信息，和血量一样两边都看得见） */
+function skillHTML(p){
+  const s = skillOf(p);
+  if(!s) return '';
+  const spent = state.skillLeft[p] <= 0;
+  return `<div class="skillchip ${s.cls}${spent ? ' spent' : ''}" title="${s.name}：${s.desc}">`
+       + `<b>${s.icon}</b>${s.name} · ${leftText(p)}</div>`;
+}
+/* 带着「双倍」时的待发徽章（公开信息，和血量一样两边都看得见） */
+function buffHTML(p){
+  if(!state.dblReady[p]) return '';
+  return `<div class="skillchip dbl" title="下一次打出的攻击牌伤害翻倍（掉 ${ATK_DMG * 2} 滴血）；打出攻击后就用掉">`
+       + `<b>×2</b>下一次攻击翻倍</div>`;
+}
+/* 当前坐在「下方」的人：闪避 / 抵消判定时是挨打、被偷的那一方 */
+function seatNow(){
+  if(state.phase === 'dodge' && state.dodge) return state.dodge.defender;
+  if(state.phase === 'negate' && state.negate) return state.negate.victim;
+  return state.turn;
+}
+function buildZone(sel, p){
+  const z = $(sel);
+  const hand = state.hands[p];
+  const seat = seatNow();
+  const live = state.phase === 'playing' || state.phase === 'dodge'
+            || state.phase === 'steal' || state.phase === 'negate';
+  const active = live && seat === p && !state.busy;
+  z.classList.toggle('dead', state.hp[p] === 0);
+  z.innerHTML = `
+    <div class="who${active ? ' active' : ''}">
+      <div class="avatar p${p}">${PLAYERS[p].short}</div>
+      <div>
+        <div class="nm">${playerLabel(p)}</div>
+        <div class="st">${statusText(p)}</div>
+        ${hpHTML(p)}
+        ${skillHTML(p)}
+        ${buffHTML(p)}
+      </div>
+    </div>
+    <div class="hand" data-player="${p}"></div>`;
+
+  const wrap = z.querySelector('.hand');
+  const mine = live && seat === p;
+
+  // 偷牌阶段：把被偷的一方手牌以「暗牌」铺出来，由偷牌的人挑一张（看不到牌面）
+  if(state.phase === 'steal' && state.steal && p === state.steal.victim){
+    facedownEls = new Map();
+    const count = Math.max(3, hand.length);
+    for(let i = 0; i < count; i++){
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      const c = hand[i];
+      if(c){
+        const el = cardEl(c, {faceUp: false});
+        if(!state.busy) el.classList.add('selectable');
+        slot.appendChild(el);
+        facedownEls.set(c.id, el);
+      } else {
+        slot.classList.add('empty');
+      }
+      wrap.appendChild(slot);
+    }
+    return;
+  }
+
+  // 不是当前行动者 → 一张牌都不显示
+  if(!mine){
+    wrap.innerHTML = `<div class="hidden-tile"><i>🔒</i><span>手牌已收起 · ${hand.length} 张</span></div>`;
+    return;
+  }
+
+  handEls = new Map();
+  const judge = state.phase === 'dodge';           // 闪避判定：只亮出手上的闪避牌
+  const judging = state.phase === 'negate';        // 抵消判定：只亮出手上的抵消牌
+  const shown = judge ? hand.filter(c => c.dodge)
+              : judging ? hand.filter(c => c.neg) : hand;
+
+  // 判定阶段手上没有对应的牌 → 只显示占位（闪避还能用技能抵消，或直接承受伤害）
+  if((judge || judging) && shown.length === 0){
+    const note = document.createElement('div');
+    note.className = 'note-tile';
+    note.textContent = judge ? '手上没有闪避牌' : '手上没有抵消牌';
+    wrap.appendChild(note);
+    return;
+  }
+
+  const slots = judge ? shown.length : Math.max(3, shown.length);
+  for(let i = 0; i < slots; i++){
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    const c = shown[i];
+    if(c){
+      const el = cardEl(c, {isNew: !!c._new, owner: p});
+      c._new = false;
+      if(state.drawnIds.includes(c.id)) el.classList.add('is-draw');
+      if(judge){
+        if(!state.busy && !state.dodgeResolved) el.classList.add('selectable');
+      } else if(judging){
+        if(!state.busy && !state.negateResolved) el.classList.add('selectable');
+      } else if(!state.busy && !state.used){
+        // 行动阶段每张牌都能点：普通牌点了是弃掉，攻击牌点了是打出去
+        el.classList.add('selectable');
+      }
+      if(state.selected === c.id) el.classList.add('selected');
+      slot.appendChild(el);
+      handEls.set(c.id, el);
+    } else {
+      slot.classList.add('empty');
+    }
+    wrap.appendChild(slot);
+  }
+  if((judge || judging) && hand.length > shown.length){
+    const note = document.createElement('div');
+    note.className = 'note-tile';
+    note.textContent = `其余 ${hand.length - shown.length} 张已收起`;
+    wrap.appendChild(note);
+  }
+}
+function statusText(p){
+  const n = state.hands[p].length;
+  const atk = state.hands[p].filter(c => c.atk).length;
+  const dg = state.hands[p].filter(c => c.dodge).length;
+  if(state.hp[p] === 0) return '血量归零';
+  if(state.phase === 'idle') return '等待发牌';
+  if(state.phase === 'dodge'){
+    return p === state.dodge.defender
+      ? (state.dodgeResolved ? `闪避判定完成` : `被攻击 · 手上闪避 ${dg} 张`)
+      : '已打出攻击 · 等对方决定';
+  }
+  if(state.phase === 'steal'){
+    return p === state.steal.victim
+      ? `手牌 ${n} 张 · 正被挑走 1 张`
+      : `手牌 ${n} 张 · 挑一张对方的暗牌`;
+  }
+  if(state.phase === 'negate'){
+    const ng = state.hands[p].filter(c => c.neg).length;
+    return p === state.negate.victim
+      ? (state.negateResolved ? '抵消判定完成' : `被偷 · 手上抵消牌 ${ng} 张`)
+      : '已打出偷取 · 等对方决定';
+  }
+  if(state.phase === 'handoff') return `手牌 ${n} 张 · 已收起`;
+  if(state.phase === 'done') return `手牌 ${n} 张 · 已收起`;
+  if(state.turn !== p) return `手牌 ${n} 张 · 已收起`;
+  if(state.used) return `手牌 ${n} 张 · 本回合已行动${state.dblReady[p] ? ' · ×2 待发' : ''}`;
+  const st = state.hands[p].filter(c => c.steal).length;
+  const ng = state.hands[p].filter(c => c.neg).length;
+  const hl = state.hands[p].filter(c => c.heal).length;
+  const db = state.hands[p].filter(c => c.dbl).length;
+  const extra = [atk ? `${atk} 张攻击` : '', dg ? `${dg} 张闪避` : '',
+                 st ? `${st} 张偷取` : '', ng ? `${ng} 张抵消` : '',
+                 hl ? `${hl} 张恢复` : '', db ? `${db} 张双倍` : '',
+                 state.dblReady[p] ? '×2 待发' : ''].filter(Boolean).join(' · ');
+  return extra ? `手牌 ${n} 张 · ${extra}` : `手牌 ${n} 张 · 该你弃 1 张`;
+}
+function renderTable(){
+  const seat = state.phase === 'idle' ? 0 : seatNow();
+  buildZone('#zoneBottom', seat);
+  buildZone('#zoneTop', 1 - seat);
+
+  // 手牌多时自动缩小牌面，避免溢出牌桌
+  const n = state.hands[seat].length;
+  const t = $('#gameTable');
+  t.classList.remove('hand-5','hand-7','hand-10');
+  if(n >= 10) t.classList.add('hand-10');
+  else if(n >= 7) t.classList.add('hand-7');
+  else if(n >= 5) t.classList.add('hand-5');
+
+  $('#deckCount').textContent = state.deck.length;
+  $('#discardCount').textContent = state.discard.length;
+  const box = $('#discardBox');
+  box.innerHTML = '';
+  const top = state.discard[state.discard.length - 1];
+  if(top){
+    const el = cardEl(top);
+    el.style.transform = 'rotate(-3deg)';
+    box.appendChild(el);
+  }
+
+  const tb = $('#turnBox');
+  tb.classList.remove('p0','p1');
+  if(state.phase === 'playing' || state.phase === 'handoff' || state.phase === 'dodge'
+     || state.phase === 'steal' || state.phase === 'negate'){
+    const who = state.phase === 'negate' ? state.negate.victim : seatNow();
+    tb.classList.add('p' + who);
+    $('#turnEmoji').textContent = PLAYERS[who].short;
+    $('#turnLabel').innerHTML = state.phase === 'dodge'
+      ? `<b>${PLAYERS[who].label}</b> · 闪避判定`
+      : state.phase === 'negate'
+        ? `<b>${PLAYERS[who].label}</b> · 抵消判定`
+        : state.phase === 'steal'
+          ? `轮到 <b>${PLAYERS[who].label}</b> · 偷牌`
+          : `轮到 <b>${PLAYERS[who].label}</b>`;
+  } else {
+    $('#turnEmoji').textContent = state.phase === 'done' ? '✓' : '—';
+    $('#turnLabel').textContent = state.phase === 'done' ? '本局结束' : '等待发牌';
+  }
+}
+/* 技能按钮：只在技能真的可用时出现 */
+function setSkillBtn(cfg){
+  const sb = $('#skillBtn');
+  if(!cfg){ sb.hidden = true; return; }
+  sb.hidden = false;
+  sb.className = 'btn skill' + (cfg.cls ? ' ' + cfg.cls : '');
+  sb.textContent = cfg.text;
+  sb.disabled = !!cfg.disabled;
+}
+function renderBanner(){
+  const b = $('#banner'), h = $('#hintline');
+  const cp = $('#confirmBtn'), ep = $('#endBtn');
+  setSkillBtn(null);
+
+  // 闪避判定：被攻击的一方决定要不要挡
+  if(state.phase === 'dodge'){
+    const d = state.dodge;
+    const canCancel = state.skills[d.defender] === 'cancel' && state.skillLeft[d.defender] > 0;
+    const hasDodge = state.hands[d.defender].some(c => c.dodge);
+    const dmg = d.dmg || ATK_DMG;
+    cp.textContent = '用闪避挡住 🛡';
+    ep.textContent = `承受伤害 −${dmg}`;
+    if(!state.dodgeResolved){
+      setSkillBtn(canCancel
+        ? {text:`⊘ 用技能抵消 · 剩 ${state.skillLeft[d.defender]}`, disabled: !!state.busy}
+        : null);
+    }
+    if(state.dodgeResolved){
+      b.textContent = '判定完成 · 正在把设备交回…';
+      h.textContent = '';
+      cp.disabled = ep.disabled = true;
+      return;
+    }
+    const sel = state.selected ? state.hands[d.defender].find(x => x.id === state.selected) : null;
+    if(!state.notice){
+      const how = d.viaSkill === 'letter'
+        ? `发动技能 <b>⚔ 字母攻击</b>，把 <b>${cardLabel(d.atkCard)}</b> 打了过来`
+        : `打出了 <b>${cardLabel(d.atkCard)}</b>`;
+      const dblTxt = dmg > ATK_DMG ? `（<b>×2 双倍</b>，要掉 ${dmg} 滴）` : '';
+      b.innerHTML = `${PLAYERS[d.attacker].label} ${how}${dblTxt} · 挡下这一次吗？`;
+    }
+    if(sel){
+      h.innerHTML = `用 <em>${cardLabel(sel)}</em> 挡掉这次攻击，1 滴血都不会掉`;
+    } else {
+      const way = [];
+      if(hasDodge) way.push('点一张闪避牌再按「用闪避挡住」');
+      if(canCancel) way.push(`按「⊘ 用技能抵消」白白挡下（本局还剩 ${state.skillLeft[d.defender]} 次）`);
+      way.push(`点「承受伤害 −${dmg}」挨这 ${dmg} 滴`);
+      h.innerHTML = way.join('；');
+    }
+    cp.disabled = !sel || !!state.busy;
+    ep.disabled = !!state.busy;
+    return;
+  }
+
+  // 抵消判定：被偷的一方决定要不要用「抵消」牌废掉这次偷取
+  if(state.phase === 'negate'){
+    const g = state.negate;
+    const sel = state.selected ? state.hands[g.victim].find(x => x.id === state.selected) : null;
+    cp.textContent = '用抵消牌挡下 ⛔';
+    ep.textContent = '不抵消，让他挑';
+    if(state.negateResolved){
+      b.textContent = '判定完成 · 正在把设备交回…';
+      h.textContent = '';
+      cp.disabled = ep.disabled = true;
+      return;
+    }
+    if(!state.notice){
+      b.innerHTML = `<b>${PLAYERS[g.thief].label}</b> 打出了 <b>偷取</b>，要从你手上拿走 1 张牌 · 挡下这一次吗？`;
+    }
+    h.innerHTML = sel
+      ? `用 <em>${cardLabel(sel)}</em> 抵消掉这次偷取，你 1 张牌都不会被拿走`
+      : '点一张<b>抵消牌</b>再按「用抵消牌挡下」；不挡就点「不抵消，让他挑」（对方仍是盲挑，看不到你的牌）';
+    cp.disabled = !sel || !!state.busy;
+    ep.disabled = !!state.busy;
+    return;
+  }
+
+  // 偷牌：从对方手牌里挑一张暗牌拿走
+  if(state.phase === 'steal'){
+    const s = state.steal;
+    cp.textContent = '确认弃牌';
+    ep.textContent = '结束回合 →';
+    b.innerHTML = state.busy
+      ? '正在拿走这张牌…'
+      : `从 <b>${PLAYERS[s.victim].label}</b> 的手牌里点一张暗牌拿走（${state.hands[s.victim].length} 选 1）`;
+    h.innerHTML = '对方的牌全程背面朝上，挑哪张全凭运气；拿到手就是你的牌';
+    cp.disabled = ep.disabled = true;
+    return;
+  }
+
+  ep.textContent = '结束回合 →';
+
+  if(state.phase === 'idle'){
+    b.textContent = '点击「重新发牌」开始';
+    h.textContent = `双方各发 ${DEAL_SIZE} 张、各 ${HP_MAX} 滴血，并各随机抽 1 个技能；每回合开始手牌补至 ${HAND_SIZE} 张，然后弃 1 张、打 1 张攻击、打出 1 张偷取、打出 1 张恢复（回 1 滴血）或打出 1 张双倍（下一次攻击伤害翻倍）；被攻击时可用闪避牌或技能抵消挡下，被偷时可用抵消牌废掉这次偷取；牌堆翻完后弃牌堆会自动洗回来继续用`;
+    cp.textContent = '确认弃牌';
+    cp.disabled = ep.disabled = true; return;
+  }
+  if(state.phase === 'handoff'){
+    b.textContent = '等待下一位玩家查看手牌…';
+    h.textContent = '交回设备前，屏幕上不会出现任何一张牌';
+    cp.textContent = '确认弃牌';
+    cp.disabled = ep.disabled = true; return;
+  }
+  if(state.phase === 'done'){
+    const o = state.over;
+    if(o && o.winner !== null && o.winner !== undefined){
+      b.innerHTML = `<b>${PLAYERS[1 - o.winner].label}</b> 血量归零 · <b>${PLAYERS[o.winner].label}</b> 赢下本局，点 <b>重新发牌</b> 再来一次`;
+    } else {
+      b.innerHTML = '所有牌都打完了，谁也没被打倒 · 点击 <b>重新发牌</b> 再来一次';
+    }
+    h.textContent = `血量 ${state.hp[0]} : ${state.hp[1]} · 手牌全程互不可见`;
+    cp.textContent = '确认弃牌';
+    cp.disabled = ep.disabled = true;
+    $('#newBtn').classList.add('pulse');
+    return;
+  }
+  $('#newBtn').classList.remove('pulse');
+
+  const n = state.hands[state.turn].length;
+  const canEnd = state.used || n === 0;      // 手上没牌时允许直接结束（兜底）
+  ep.disabled = !canEnd || !!state.busy;
+
+  if(state.notice) b.textContent = state.notice;
+
+  // 本回合已经行动过（弃牌 / 攻击 / 偷取） → 只能结束回合
+  if(state.used){
+    cp.textContent = '确认弃牌';
+    cp.disabled = true;
+    h.textContent = '每回合只能做一个动作（弃 1 张 / 打 1 张攻击 / 打出偷取 / 打出恢复），点「结束回合」交接';
+    if(!state.notice){
+      const a = state.turnAction;
+      if(a){
+        const foe = PLAYERS[1 - state.turn].label;
+        const how = a.viaSkill === 'letter'
+          ? `发动技能 <b>⚔ 字母攻击</b>，把 <b>${cardLabel(a.card)}</b> 当攻击打出`
+          : `用 <b>${cardLabel(a.card)}</b> 攻击`;
+        if(a.kind === 'attack'){
+          if(a.blockedBy){
+            const bn = a.blockedBy.skill ? '技能 <b>⊘ 抵消</b>' : `<b>${cardLabel(a.blockedBy)}</b>`;
+            b.innerHTML = `${how} ${foe}，被 ${bn} 挡了下来，对方没掉血${a.doubled ? '（<b>×2 双倍</b>也一起用掉了）' : ''}`;
+          } else {
+            b.innerHTML = `${how} ${foe}${a.doubled ? '（<b>×2 双倍</b>）' : ''}，对方剩 <b>${state.hp[1 - state.turn]}</b> 滴血`;
+          }
+        } else if(a.kind === 'skill'){
+          b.innerHTML = `发动技能 <b>✚ 治疗</b>：弃掉 <b>${cardLabel(a.card)}</b>，回 1 滴血（现在 ${state.hp[state.turn]} / ${HP_MAX}）`;
+        } else if(a.kind === 'heal'){
+          b.innerHTML = `打出 <b>${cardLabel(a.card)}</b>，回 1 滴血（现在 <b>${state.hp[state.turn]}</b> / ${HP_MAX}）· 点「结束回合」交给对方`;
+        } else if(a.kind === 'dbl'){
+          b.innerHTML = `打出 <b>${cardLabel(a.card)}</b>：下一次打出的攻击伤害翻倍（掉 <b>${ATK_DMG * 2}</b> 滴血）· 点「结束回合」交给对方`;
+        } else if(a.kind === 'steal'){
+          b.innerHTML = a.blockedBy
+            ? `打出了 <b>偷取</b>，被 <b>${cardLabel(a.blockedBy)}</b> 挡了下来，1 张牌都没拿到 · 点「结束回合」交给对方`
+            : `打出了 <b>偷取</b>，从 <b>${foe}</b> 手上拿走了 1 张牌 · 点「结束回合」交给对方`;
+        } else {
+          b.innerHTML = `已弃掉 <b>${cardLabel(a.card)}</b> · 点「结束回合」交给对方`;
+        }
+      } else {
+        b.innerHTML = '本回合已行动 · 点「结束回合」交给对方';
+      }
+    }
+    return;
+  }
+
+  // 还没行动 → 「结束回合」不可用
+  const me = state.turn;
+  const sid = state.skills[me];
+  const sk = skillOf(me);
+  const sel = state.selected ? state.hands[me].find(x => x.id === state.selected) : null;
+  const foeN = state.hands[1 - me].length;          // 对方手牌张数（决定偷取能不能打）
+  const canHeal = state.hp[me] < HP_MAX;            // 自己没满血，恢复牌才用得上
+  const hasDbl = state.dblReady[me];                // 已经带着双倍了，再打双倍牌就没意义
+  cp.textContent = sel && sel.atk ? '打出攻击 ⚔'
+                 : sel && sel.steal ? (foeN ? '打出偷取 🤲' : '确认弃牌')
+                 : sel && sel.heal ? (canHeal ? '打出恢复 ✚' : '确认弃牌')
+                 : sel && sel.dbl ? (hasDbl ? '确认弃牌' : '打出双倍 ×2')
+                 : '确认弃牌';
+
+  // 技能按钮：只有技能真的用得上时才出现
+  let sbCfg = null;
+  if(sel && !state.busy){
+    if(sid === 'heal' && state.skillLeft[me] > 0 && isRedPlain(sel) && state.hp[me] < HP_MAX){
+      sbCfg = {text:`✚ 弃红牌回血 · 剩 ${state.skillLeft[me]}`, cls:'heal'};
+    } else if(sid === 'letter' && isLetter(sel)){
+      sbCfg = {text:'⚔ 当攻击打出', cls:'letter'};
+    }
+  }
+  setSkillBtn(sbCfg);
+
+  if(sel){
+    if(!state.notice){
+      if(sel.atk){
+        b.innerHTML = `选中了 <b>${cardLabel(sel)}</b>（打掉对手 ${atkDmg(me)} 滴血${hasDbl ? '，<b>×2 双倍</b>生效中' : ''}），确认打出吗？`;
+      } else if(sel.dbl){
+        b.innerHTML = hasDbl
+          ? `你已经带着 <b>×2 双倍</b>了，再打一张不会叠上去 · 按「确认弃牌」把它弃掉`
+          : `选中了 <b>${cardLabel(sel)}</b> · 按「打出双倍」让自己<b>下一次打出的攻击伤害翻倍</b>（${ATK_DMG} → ${ATK_DMG * 2} 滴血）`;
+      } else if(sel.steal){
+        b.innerHTML = foeN
+          ? `选中了 <b>偷取</b> · 按「打出偷取」从 <b>${PLAYERS[1 - me].label}</b> 手上拿走 1 张牌（牌面朝下，盲挑一张）`
+          : `<b>${PLAYERS[1 - me].label}</b> 手上没有牌，这张偷取偷不到东西 · 按「确认弃牌」把它弃掉`;
+      } else if(sel.heal){
+        b.innerHTML = canHeal
+          ? `选中了 <b>${cardLabel(sel)}</b> · 按「打出恢复」回 1 滴血（现在 ${state.hp[me]} / ${HP_MAX}）`
+          : `你已经满血（${state.hp[me]} / ${HP_MAX}），这张恢复用不了 · 按「确认弃牌」把它弃掉`;
+      } else if(sbCfg && sid === 'heal'){
+        b.innerHTML = `选中了 <b>${cardLabel(sel)}</b> · 按 <b>✚ 弃红牌回血</b> 弃掉它并回 1 滴血，或按「确认弃牌」只弃牌`;
+      } else if(sbCfg && sid === 'letter'){
+        b.innerHTML = `选中了 <b>${cardLabel(sel)}</b> · 按 <b>⚔ 当攻击打出</b> 打掉对手 ${atkDmg(me)} 滴血，或按「确认弃牌」把它弃掉`;
+      } else {
+        b.innerHTML = `选中了 <b>${cardLabel(sel)}</b>，确认弃掉吗？`;
+      }
+    }
+    const bits = [];
+    if(sel.atk) bits.push(hasDbl
+      ? `吃到你身上的 <b>×2 双倍</b>：这一下掉 ${ATK_DMG * 2} 滴血（打出攻击后双倍就用掉了）`
+      : '打出攻击本回合就不能再弃牌了；对手掉 1 滴血，血量为 0 就出局');
+    else if(sel.dbl) bits.push(hasDbl
+      ? '双倍不叠加：你已经带着一次双倍了，这张只能当普通牌弃掉'
+      : `打出双倍就是本回合的动作：之后<b>第一次</b>打出的攻击伤害翻倍 —— 被闪避挡下也已经用掉`);
+    else if(sel.steal) bits.push(foeN
+      ? `对手 ${foeN} 张手牌会全部背面朝上铺开，你盲挑 1 张拿走；本回合就这一个动作`
+      : '对方手上没牌，偷不到东西；它也可以当普通牌弃掉');
+    else if(sel.dodge) bits.push('这是闪避牌：留在手上，被攻击时能挡下 1 次攻击；现在弃掉就没有了');
+    else if(sel.neg) bits.push('这是抵消牌：留在手上，被偷时能废掉对方一次偷取；现在弃掉就没有了');
+    else if(sel.heal) bits.push(canHeal
+      ? '打出恢复牌就是本回合的动作：自己回 1 滴血（最多到 3 滴），牌进弃牌堆'
+      : '你满血时恢复牌不回血；只能先把它弃掉，换下回合再摸牌');
+    else bits.push('弃牌、攻击、偷取、恢复、双倍每回合只能选一个做；做完就能结束回合');
+    if(sbCfg) bits.push(`你的技能 <em>${sk.icon} ${sk.name}</em> · ${leftText(me)}`);
+    h.innerHTML = bits.join('；');
+    cp.disabled = !!state.busy;
+  } else {
+    if(!state.notice){
+      b.innerHTML = state.busy
+        ? '正在出牌…'
+        : (n === 0
+            ? '你手上已经没有牌了 · 点「结束回合」交给对方'
+            : `轮到 <b>${PLAYERS[me].label}</b> · 点你的手牌出牌`);
+    }
+    const atk = state.hands[me].filter(c => c.atk).length;
+    const dg = state.hands[me].filter(c => c.dodge).length;
+    const st = state.hands[me].filter(c => c.steal).length;
+    const ng = state.hands[me].filter(c => c.neg).length;
+    const hl = state.hands[me].filter(c => c.heal).length;
+    const db = state.hands[me].filter(c => c.dbl).length;
+    const bits = [];
+    if(state.dblReady[me]) bits.push(`你带着 <em>×2 双倍</em>（下一次攻击掉 ${ATK_DMG * 2} 滴血）`);
+    if(atk) bits.push(`<em>${atk}</em> 张攻击（能打出去、不能当普通牌弃）`);
+    if(dg) bits.push(`<em>${dg}</em> 张闪避（被攻击时能挡下）`);
+    if(st) bits.push(`<em>${st}</em> 张偷取（能从对方手上盲拿 1 张）`);
+    if(ng) bits.push(`<em>${ng}</em> 张抵消（被偷时能废掉这次偷取）`);
+    if(hl) bits.push(`<em>${hl}</em> 张恢复（打出能回 1 滴血）`);
+    if(db) bits.push(`<em>${db}</em> 张双倍（打出后下次攻击伤害翻倍）`);
+    if(sk) bits.push(`技能 <em>${sk.icon} ${sk.name}</em> · ${leftText(me)}`);
+    h.innerHTML = n === 0
+      ? '手牌已空，无需再出牌'
+      : (bits.length
+          ? `你手上有 ${bits.join('、')}`
+          : `每回合开始手牌补至 ${HAND_SIZE} 张，之后弃 1 张 / 打 1 张攻击 / 打出偷取 / 打出恢复 / 打出双倍，只能做一个动作；留着抵消牌可以防偷`);
+    cp.disabled = true;
+  }
+}
+function render(){
+  renderTable();
+  renderBanner();
+}
+function log(text, who = 'sys'){
+  const box = $('#log');
+  const row = document.createElement('div');
+  row.className = 'row ' + who;
+  const tag = who === 'p0' ? '玩家一' : who === 'p1' ? '玩家二' : '·';
+  row.innerHTML = `<b>${tag}</b><span>${text}</span>`;
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------------- 出牌动画 ---------------- */
+async function flyTo(el, targetSel){
+  if(!el) return;
+  const from = el.getBoundingClientRect();
+  const to = $(targetSel).getBoundingClientRect();
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  el.style.zIndex = 60;
+  el.style.transition = 'transform .42s cubic-bezier(.35,0,.25,1), opacity .42s ease-in';
+  el.style.transform = `translate(${dx}px, ${dy}px) scale(.7) rotate(-12deg)`;
+  beep(300, .08, 'sawtooth', .035);
+  await sleep(280);
+  el.style.opacity = '0';
+  await sleep(160);
+}
+const zoneSel = p => p === 0 ? '#zoneBottom' : '#zoneTop';
+
+/* ---------------- 命中 / 挡住效果 ---------------- */
+function showHit(p, dmg = ATK_DMG){
+  const z = $(zoneSel(p));
+  z.classList.add('hit');
+  const pop = document.createElement('div');
+  pop.className = 'dmg-pop';
+  pop.textContent = '−' + dmg;
+  z.appendChild(pop);
+  beep(150, .18, 'square', .05);
+  setTimeout(() => z.classList.remove('hit'), 520);
+  setTimeout(() => { if(pop.parentNode) pop.remove(); }, 1000);
+}
+function showBlock(p, text = '🛡 挡住'){
+  const z = $(zoneSel(p));
+  z.classList.add('block');
+  const pop = document.createElement('div');
+  pop.className = 'block-pop';
+  pop.textContent = text;
+  z.appendChild(pop);
+  beep(880, .12, 'triangle', .05);
+  setTimeout(() => beep(1180, .1, 'triangle', .04), 90);
+  setTimeout(() => z.classList.remove('block'), 560);
+  setTimeout(() => { if(pop.parentNode) pop.remove(); }, 1000);
+}
+/* 回血动效 */
+function showHeal(p){
+  const z = $(zoneSel(p));
+  z.classList.add('heal');
+  const pop = document.createElement('div');
+  pop.className = 'heal-pop';
+  pop.textContent = '✚ +1';
+  z.appendChild(pop);
+  beep(720, .12, 'sine', .05);
+  setTimeout(() => beep(1010, .12, 'sine', .045), 100);
+  setTimeout(() => z.classList.remove('heal'), 620);
+  setTimeout(() => { if(pop.parentNode) pop.remove(); }, 1000);
+}
+
+/* ---------------- 牌堆翻完 → 把弃牌堆重新洗回牌堆 ---------------- */
+function reshuffleDiscard(){
+  if(state.deck.length > 0 || state.discard.length === 0) return false;
+  const n = state.discard.length;
+  state.deck = shuffle(state.discard);        // 弃牌堆整堆洗匀后变成新牌堆
+  state.discard = [];
+  state.deck.forEach(c => { c._new = false; });   // 收回的牌不再算「本回合摸到」
+
+  const zone = $('#deckZone');
+  if(zone){
+    zone.classList.add('reshuffling');
+    const msg = $('#deckMsg');
+    if(msg) msg.textContent = `↻ 洗牌 ${n}`;
+    clearTimeout(reshuffleDiscard._t);
+    reshuffleDiscard._t = setTimeout(() => { zone.classList.remove('reshuffling'); }, 700);
+  }
+  setTimeout(() => beep(520, .09, 'sine', .05), 0);
+  setTimeout(() => beep(690, .09, 'sine', .045), 110);
+  setTimeout(() => beep(880, .12, 'sine', .04), 220);
+  log(`牌堆翻完了 · 把弃牌堆的 <b>${n}</b> 张牌重新洗成牌堆`, 'sys');
+  return true;
+}
+
+/* ---------------- 回合开始：把手牌补至 4 张（牌堆不够就把弃牌堆洗回来） ---------------- */
+function drawForTurn(p){
+  const drew = [];
+  while(state.hands[p].length < HAND_SIZE){
+    if(state.deck.length === 0 && !reshuffleDiscard()) break;   // 弃牌堆也空了 → 真的没牌可补
+    const c = state.deck.pop();
+    c._new = true;
+    state.hands[p].push(c);
+    drew.push(c);
+  }
+  if(state.deck.length === 0) reshuffleDiscard();   // 手牌本来就满时也顺手补满牌堆，不让牌堆停在 0
+  state.drawnIds = drew.map(c => c.id);
+  if(drew.length){
+    log(`${PLAYERS[p].label} 回合开始，手牌补至 <b>${state.hands[p].length}</b> 张，摸进 <b>${drew.map(cardLabel).join('、')}</b>`, 'p' + p);
+  } else if(state.deck.length === 0){
+    log(`${PLAYERS[p].label} 回合开始，牌堆和弃牌堆都空了，补不了牌（手牌 ${state.hands[p].length} 张）`, 'sys');
+  }
+  return drew;
+}
+
+/* ---------------- 交接遮罩 ---------------- */
+function showHandoff(){
+  const mode = state.handoffMode;
+  const btn = $('#hoBtn'), av = $('#hoAvatar');
+
+  if(mode === 'dodge'){
+    const d = state.dodge, p = d.defender;
+    const dg = state.hands[p].filter(c => c.dodge).length;
+    const canCancel = state.skills[p] === 'cancel' && state.skillLeft[p] > 0;
+    const ddmg = d.dmg || ATK_DMG;
+    av.className = 'ho-avatar p' + p;
+    av.textContent = PLAYERS[p].short;
+    $('#hoTitle').innerHTML = `<b>${PLAYERS[p].label}</b> · 你被攻击了`;
+    $('#hoSub').textContent = `${PLAYERS[d.attacker].label} ${d.viaSkill === 'letter' ? `发动技能把 ${cardLabel(d.atkCard)} 当攻击打出` : `打出 ${cardLabel(d.atkCard)}`}${ddmg > ATK_DMG ? `（双倍 ×2，要掉 ${ddmg} 滴）` : ''}，请把设备交给 ${PLAYERS[p].label} 决定挡不挡`;
+    $('#hoCount').textContent = `🛡 手上闪避 ${dg} 张 · ♥ ${state.hp[p]} / ${HP_MAX}`;
+    btn.textContent = dg ? '看我的闪避牌' : (canCancel ? '用技能抵消 ⊘' : '我没有闪避牌');
+  } else if(mode === 'negate'){
+    const g = state.negate, p = g.victim;
+    const ng = state.hands[p].filter(c => c.neg).length;
+    av.className = 'ho-avatar p' + p;
+    av.textContent = PLAYERS[p].short;
+    $('#hoTitle').innerHTML = `<b>${PLAYERS[p].label}</b> · 你被偷了`;
+    $('#hoSub').textContent = `${PLAYERS[g.thief].label} 打出「偷取」，要从你手上拿走 1 张牌；请把设备交给 ${PLAYERS[p].label} 决定要不要用抵消牌挡下`;
+    $('#hoCount').textContent = `⛔ 手上抵消牌 ${ng} 张 · 🂠 手牌 ${state.hands[p].length} 张`;
+    btn.textContent = '看我的抵消牌';
+  } else if(mode === 'back'){
+    const p = state.turn;
+    const toSteal = state.returnTo === 'steal';
+    av.className = 'ho-avatar p' + p;
+    av.textContent = PLAYERS[p].short;
+    $('#hoTitle').innerHTML = `请把设备交回 <b>${PLAYERS[p].label}</b>`;
+    $('#hoSub').textContent = toSteal
+      ? '对方没有用抵消牌，交回后点一张暗牌拿走'
+      : '闪避判定结束，交回后本回合只需点「结束回合」';
+    $('#hoCount').textContent = `🂠 手牌 ${state.hands[p].length} 张 · ♥ ${state.hp[p]} / ${HP_MAX}`;
+    btn.textContent = toSteal ? '继续挑牌' : '继续我的回合';
+  } else {
+    const p = state.turn;
+    const first = mode === 'start';
+    av.className = 'ho-avatar p' + p;
+    av.textContent = PLAYERS[p].short;
+    $('#hoTitle').innerHTML = first ? `牌已发好 · <b>${PLAYERS[p].label}</b> 先手` : `轮到 <b>${PLAYERS[p].label}</b>`;
+    $('#hoSub').textContent = first
+      ? `请把设备交给 ${PLAYERS[p].label}，第一回合手牌已补至 ${state.hands[p].length} 张`
+      : `${PLAYERS[1 - p].label} 已结束回合，请把设备交给 ${PLAYERS[p].label}`;
+    $('#hoCount').textContent = `🂠 手牌 ${state.hands[p].length} 张 · ♥ ${state.hp[p]} / ${HP_MAX}`;
+    btn.textContent = '查看我的手牌';
+  }
+
+  // 遮罩上也提示接手人的技能
+  const whose = mode === 'dodge' && state.dodge ? state.dodge.defender
+              : mode === 'negate' && state.negate ? state.negate.victim
+              : state.turn;
+  const s = skillOf(whose), hs = $('#hoSkill');
+  if(s){
+    hs.style.display = '';
+    hs.className = 'ho-skill ' + s.cls;
+    hs.innerHTML = `${s.icon} 技能 <b>${s.name}</b> · ${leftText(whose)}`;
+    hs.title = s.desc;
+  } else {
+    hs.style.display = 'none';
+  }
+
+  $('#handoff').classList.add('show');
+  beep(520, .09, 'triangle', .04);
+}
+function hideHandoff(){
+  $('#handoff').classList.remove('show');
+}
+function takeOver(){
+  if(state.phase !== 'handoff') return;
+  hideHandoff();
+  const mode = state.handoffMode;
+
+  // 被攻击方接手 → 只做一次闪避判定
+  if(mode === 'dodge'){
+    state.phase = 'dodge';
+    state.selected = null;
+    state.busy = false;
+    state.dodgeResolved = false;
+    state.notice = '';
+    render();
+    beep(660, .07, 'triangle', .04);
+    return;
+  }
+
+  // 被偷方接手 → 决定要不要用抵消牌挡下这次偷取
+  if(mode === 'negate'){
+    state.phase = 'negate';
+    state.selected = null;
+    state.busy = false;
+    state.negateResolved = false;
+    state.notice = '';
+    render();
+    beep(660, .07, 'triangle', .04);
+    return;
+  }
+
+  // 判定完交回行动方 → 被抵消了就只需结束回合；对方放弃抵抗则继续挑牌
+  if(mode === 'back'){
+    state.phase = state.returnTo === 'steal' ? 'steal' : 'playing';
+    state.returnTo = 'playing';
+    state.handoffMode = 'turn';
+    state.selected = null;
+    state.notice = '';
+    render();
+    beep(660, .07, 'triangle', .04);
+    return;
+  }
+
+  // 正常交接 / 开局
+  state.phase = 'playing';
+  state.handoffMode = 'turn';
+  state.selected = null;
+  state.used = false;                    // 新回合：重新获得 1 个动作
+  state.turnAction = null;
+  state.notice = '';
+  state.hands[state.turn].forEach(c => c._new = true);   // 翻开动画
+  render();
+  beep(660, .07, 'triangle', .04);
+}
+
+/* 判定完 → 把设备交回行动方（nextPhase：playing 已被抵消 / steal 对方放弃抵抗，继续挑牌） */
+function handBackToAttacker(nextPhase = 'playing'){
+  state.dodgeResolved = false;
+  state.dodge = null;
+  state.negate = null;
+  state.negateResolved = false;
+  state.returnTo = nextPhase;
+  state.phase = 'handoff';
+  state.handoffMode = 'back';
+  state.selected = null;
+  state.notice = '';
+  render();
+  showHandoff();
+}
+
+/* ---------------- 流程 ---------------- */
+function newGame(){
+  state.deck = shuffle(makeDeck());
+  state.discard = [];
+  state.hands = [[],[]];
+  state.hp = [HP_MAX, HP_MAX];
+  state.turn = 0;
+  state.lastTurn = 0;
+  state.selected = null;
+  state.busy = false;
+  state.phase = 'handoff';
+  state.notice = '';
+  state.drawnIds = [];
+  state.used = false;
+  state.turnAction = null;
+  state.over = null;
+  state.dodge = null;
+  state.dodgeResolved = false;
+  state.steal = null;
+  state.negate = null;
+  state.negateResolved = false;
+  state.returnTo = 'playing';
+  state.dblReady = [false,false];
+  facedownEls = new Map();
+  state.handoffMode = 'start';
+  // 开局：每人随机抽 1 个技能
+  state.skills = [0,1].map(() => SKILL_IDS[Math.floor(Math.random() * SKILL_IDS.length)]);
+  state.skillLeft = state.skills.map(id => SKILLS[id].limit);
+  $('#log').innerHTML = '';
+  $('#newBtn').classList.remove('pulse');
+  hideHandoff();
+  document.querySelectorAll('.zone').forEach(z => z.className = z.className.replace(/\s*(hit|dead|block)/g, ''));
+
+  for(let k = 0; k < DEAL_SIZE; k++){
+    [0,1].forEach(p => {
+      const c = state.deck.pop();
+      c._new = true;
+      state.hands[p].push(c);
+    });
+  }
+  $('#deckZone').classList.remove('reshuffling');
+  $('#deckMsg').textContent = '';
+  log(`重新发牌：76 张牌（含 <b>8 张攻击牌</b> · <b>4 张闪避牌</b> · <b>4 张偷取牌</b> · <b>4 张抵消牌</b> · <b>2 张恢复牌</b> · <b>2 张双倍牌</b>），双方各发 ${DEAL_SIZE} 张、各 ${HP_MAX} 滴血；每回合开始手牌补至 ${HAND_SIZE} 张，牌堆翻完后弃牌堆会自动洗回来，玩家一先手`, 'sys');
+  log(`开局抽技能 · 玩家一：<b>${skillOf(0).icon} ${skillOf(0).name}</b>（${leftText(0)}）／玩家二：<b>${skillOf(1).icon} ${skillOf(1).name}</b>（${leftText(1)}）`, 'sys');
+  drawForTurn(0);                        // 第一回合开始：手牌补至 4 张
+  render();
+  showHandoff();
+}
+
+/* 对方能不能应对这次攻击：手上有闪避牌，或有「抵消」技能 */
+function canRespond(p){
+  if(state.hands[p].some(c => c.dodge)) return true;
+  return state.skills[p] === 'cancel' && state.skillLeft[p] > 0;
+}
+/* 被偷的一方手上有没有「抵消」牌，能挡下这次偷取 */
+function canNegateSteal(p){
+  return state.hands[p].some(c => c.neg);
+}
+
+/* 弃 1 张 / 打 1 张攻击（含「字母攻击」技能）/ 打出 1 张偷取 —— 每回合只能做一个 */
+async function commitAction(card, opts = {}){
+  const p = state.turn;
+  if(state.phase !== 'playing' || state.busy || !card) return;
+  if(state.used) return;
+  const foe = 1 - p;
+  const asAttack = !!card.atk || opts.viaSkill === 'letter';
+  // 偷取牌：对方手上还有牌才能真正偷；对方没牌时这张牌只能当普通牌弃掉
+  const asSteal = !!card.steal && !asAttack && state.hands[foe].length > 0;
+  // 恢复牌：自己不满血才回得动；血已满时这张牌只能当普通牌弃掉（不然白白浪费一个动作）
+  const asHeal = !!card.heal && !asAttack && state.hp[p] < HP_MAX;
+  // 双倍牌：自己还没带着「下一次攻击翻倍」时才有用；已经带着时只能当普通牌弃掉（不叠加）
+  const asDbl = !!card.dbl && !asAttack && !state.dblReady[p];
+  // 这张攻击牌是否吃到「双倍」；双倍是一次性的，打出攻击就用掉
+  const doubled = asAttack && state.dblReady[p];
+  const dmg = asAttack ? (doubled ? ATK_DMG * 2 : ATK_DMG) : 0;
+  if(asAttack) state.dblReady[p] = false;
+  state.busy = true;
+  state.selected = null;
+  state.notice = '';
+  renderBanner();
+
+  const el = handEls.get(card.id);
+  await flyTo(el, (asAttack || asSteal) ? zoneSel(foe) : '#discardBox');
+
+  state.hands[p] = state.hands[p].filter(c => c !== card);
+  state.discard.push(card);
+  state.drawnIds = state.drawnIds.filter(id => id !== card.id);
+  state.busy = false;
+  state.used = true;
+  state.turnAction = {kind: asAttack ? 'attack' : asSteal ? 'steal' : asHeal ? 'heal'
+                            : asDbl ? 'dbl' : 'discard',
+                      card, blockedBy: null, viaSkill: opts.viaSkill || null, doubled, dmg};
+  render();
+
+  const tag = p === 0 ? 'p0' : 'p1';
+  if(asDbl){
+    state.dblReady[p] = true;
+    render();
+    beep(880, .1, 'triangle', .05);
+    setTimeout(() => beep(1240, .12, 'triangle', .045), 110);
+    log(`打出 <b>${cardLabel(card)}</b>：下一次打出的攻击伤害翻倍（掉 <b>${ATK_DMG * 2}</b> 滴血）`, tag);
+    return;
+  }
+  if(asHeal){
+    state.hp[p] = Math.min(HP_MAX, state.hp[p] + HEAL_HP);
+    render();
+    showHeal(p);
+    log(`打出 <b>${cardLabel(card)}</b>，回 1 滴血，现在 <b>${state.hp[p]}</b> / ${HP_MAX}`, tag);
+    return;
+  }
+  if(asSteal){
+    state.steal = {thief: p, victim: foe};
+    state.selected = null;
+    state.notice = '';
+    beep(760, .09, 'triangle', .045);
+    // 对方手上有「抵消」牌 → 先把设备交给他，让他决定挡不挡；否则直接进入盲挑
+    if(canNegateSteal(foe)){
+      state.negate = {thief: p, victim: foe};
+      state.negateResolved = false;
+      state.phase = 'handoff';
+      state.handoffMode = 'negate';
+      render();
+      showHandoff();
+      log(`打出 <b>偷取</b> · ${PLAYERS[foe].label} 手上有 <b>抵消</b> 牌，等他决定挡不挡`, tag);
+      return;
+    }
+    // 进入「挑牌」环节：对方手牌全部以暗牌铺开，由你盲挑 1 张拿走
+    state.phase = 'steal';
+    render();
+    log(`打出 <b>偷取</b> · ${PLAYERS[foe].label} 的手牌全部翻成背面，等你盲挑 1 张`, tag);
+    return;
+  }
+  if(asAttack){
+    const dblTxt = doubled ? `（<b>×2 双倍</b>，掉 ${dmg} 滴血）` : '';
+    if(opts.viaSkill === 'letter'){
+      log(`发动技能 <b>⚔ 字母攻击</b>，把 <b>${cardLabel(card)}</b> 当作攻击打出${dblTxt}`, tag);
+    } else {
+      log(`用 <b>${cardLabel(card)}</b> 攻击 ${PLAYERS[foe].label}${dblTxt}`, tag);
+    }
+    if(canRespond(foe)){
+      // 对方能应对 → 把设备交给他，由他决定挡不挡
+      log(`${PLAYERS[foe].label} 可以应对这次攻击 · 等他决定`, 'sys');
+      state.dodge = {attacker: p, defender: foe, atkCard: card, viaSkill: opts.viaSkill || null, dmg};
+      state.dodgeResolved = false;
+      state.handoffMode = 'dodge';
+      state.phase = 'handoff';
+      state.selected = null;
+      state.notice = '';
+      render();
+      showHandoff();
+      return;
+    }
+    applyAttackDamage();
+  } else {
+    beep(420, .06, 'triangle', .03);
+    log(`弃掉 <b>${cardLabel(card)}</b>（本回合就这一个动作），手牌还剩 ${state.hands[p].length} 张`, tag);
+  }
+}
+
+/* ---------------- 技能：✚ 治疗（弃 1 张红色牌，回 1 滴血） ---------------- */
+async function useHeal(card){
+  const p = state.turn;
+  if(state.phase !== 'playing' || state.busy || state.used) return;
+  if(state.skills[p] !== 'heal' || state.skillLeft[p] <= 0) return;
+  if(!isRedPlain(card)) return;
+
+  state.busy = true;
+  state.selected = null;
+  state.notice = '';
+  renderBanner();
+  await flyTo(handEls.get(card.id), '#discardBox');
+
+  state.hands[p] = state.hands[p].filter(c => c !== card);
+  state.discard.push(card);
+  state.drawnIds = state.drawnIds.filter(id => id !== card.id);
+  state.skillLeft[p]--;
+  const healed = state.hp[p] < HP_MAX;
+  state.hp[p] = Math.min(HP_MAX, state.hp[p] + 1);
+  state.busy = false;
+  state.used = true;
+  state.turnAction = {kind:'skill', skill:'heal', card, blockedBy:null, viaSkill:'heal'};
+  render();
+  if(healed) showHeal(p);
+  log(`发动技能 <b>✚ 治疗</b>：弃掉 <b>${cardLabel(card)}</b>（红色牌），回 1 滴血，现在 <b>${state.hp[p]}</b> / ${HP_MAX}，技能剩 ${state.skillLeft[p]} 次`, 'p' + p);
+}
+
+/* 技能按钮：行动阶段用技能，判定阶段用「抵消」 */
+function useSkillBtn(){
+  if(state.phase === 'dodge'){ cancelAttack(); return; }
+  if(state.phase !== 'playing' || state.busy || state.used || !state.selected) return;
+  const p = state.turn;
+  const card = state.hands[p].find(c => c.id === state.selected);
+  if(!card) return;
+  if(state.skills[p] === 'heal' && state.skillLeft[p] > 0 && isRedPlain(card) && state.hp[p] < HP_MAX){
+    useHeal(card);
+  } else if(state.skills[p] === 'letter' && isLetter(card)){
+    commitAction(card, {viaSkill:'letter'});
+  }
+}
+
+/* 对方没有闪避牌 → 直接结算伤害（点数取自本回合打出的攻击，可能被「双倍」翻倍） */
+function applyAttackDamage(){
+  const p = state.turn, foe = 1 - p;
+  const dmg = (state.turnAction && state.turnAction.dmg) || ATK_DMG;
+  state.hp[foe] = Math.max(0, state.hp[foe] - dmg);
+  state.selected = null;
+  render();                     // 先刷新血条，再放命中动效（动效元素挂在牌区上）
+  showHit(foe, dmg);
+  log(`${PLAYERS[foe].label} 掉 ${dmg} 滴血，剩 <b>${state.hp[foe]}</b> / ${HP_MAX}`, p === 0 ? 'p0' : 'p1');
+  if(state.hp[foe] === 0){
+    state.busy = true;
+    render();                   // 让命中动效播完再收尾
+    setTimeout(() => { state.busy = false; finishGame(p, `${PLAYERS[foe].label} 血量归零`); }, 660);
+  }
+}
+
+/* 被攻击方选择「承受伤害」 */
+async function acceptHit(){
+  if(state.phase !== 'dodge' || state.busy || state.dodgeResolved) return;
+  const d = state.dodge, foe = d.defender, p = d.attacker;
+  const dmg = d.dmg || ATK_DMG;
+  state.dodgeResolved = true;
+  state.selected = null;
+  state.hp[foe] = Math.max(0, state.hp[foe] - dmg);
+  render();
+  showHit(foe, dmg);
+  log(`没有使用闪避，掉 ${dmg} 滴血，剩 <b>${state.hp[foe]}</b> / ${HP_MAX}`, 'p' + foe);
+  if(state.hp[foe] === 0){
+    await sleep(680);
+    finishGame(p, `${PLAYERS[foe].label} 血量归零`);
+    return;
+  }
+  await sleep(780);
+  handBackToAttacker();
+}
+
+/* 被攻击方用掉一张闪避牌挡下这次攻击 */
+async function useDodge(){
+  if(state.phase !== 'dodge' || state.busy || state.dodgeResolved) return;
+  const d = state.dodge;
+  const card = state.hands[d.defender].find(c => c.id === state.selected);
+  if(!card || !card.dodge) return;
+
+  state.busy = true;
+  state.selected = null;
+  renderBanner();
+  await flyTo(handEls.get(card.id), '#discardBox');
+
+  state.hands[d.defender] = state.hands[d.defender].filter(c => c !== card);
+  state.discard.push(card);
+  state.busy = false;
+  state.dodgeResolved = true;
+  if(state.turnAction) state.turnAction.blockedBy = card;
+  render();
+  showBlock(d.defender);
+  log(`用 <b>${cardLabel(card)}</b> 挡下了这次攻击，1 滴血都没掉`, 'p' + d.defender);
+  await sleep(800);
+  handBackToAttacker();
+}
+
+/* 被攻击方用「⊘ 抵消」技能挡下这次攻击（每局限 1 次） */
+async function cancelAttack(){
+  if(state.phase !== 'dodge' || state.busy || state.dodgeResolved) return;
+  const d = state.dodge;
+  if(state.skills[d.defender] !== 'cancel' || state.skillLeft[d.defender] <= 0) return;
+
+  state.dodgeResolved = true;
+  state.skillLeft[d.defender]--;
+  state.selected = null;
+  if(state.turnAction) state.turnAction.blockedBy = {skill:'cancel'};
+  render();
+  showBlock(d.defender, '⊘ 抵消');
+  log(`发动技能 <b>⊘ 抵消</b>：抵消了这次攻击，1 滴血都没掉，本局技能已用完`, 'p' + d.defender);
+  await sleep(840);
+  handBackToAttacker();
+}
+
+/* ---------------- 抵消：被偷的一方用「抵消」牌废掉这次偷取 ---------------- */
+async function useNegate(){
+  if(state.phase !== 'negate' || state.busy || state.negateResolved) return;
+  const g = state.negate;
+  const card = state.hands[g.victim].find(c => c.id === state.selected);
+  if(!card || !card.neg) return;
+
+  state.busy = true;
+  state.selected = null;
+  renderBanner();
+  await flyTo(handEls.get(card.id), '#discardBox');
+
+  state.hands[g.victim] = state.hands[g.victim].filter(c => c !== card);
+  state.discard.push(card);
+  state.busy = false;
+  state.negateResolved = true;
+  if(state.turnAction) state.turnAction.blockedBy = card;
+  state.steal = null;
+  render();
+  showBlock(g.victim, '⛔ 抵消');
+  log(`用 <b>抵消</b> 牌挡下了这次偷取，1 张牌都没被拿走`, 'p' + g.victim);
+  await sleep(820);
+  handBackToAttacker('playing');
+}
+
+/* 被偷的一方放弃抵消 → 交回给偷牌的人继续盲挑 */
+function declineNegate(){
+  if(state.phase !== 'negate' || state.busy || state.negateResolved) return;
+  state.negateResolved = true;
+  state.selected = null;
+  log(`${PLAYERS[state.negate.victim].label} 没有用抵消牌，让对方继续挑`, 'p' + state.negate.victim);
+  render();
+  handBackToAttacker('steal');
+}
+
+/* ---------------- 偷取：从对方手牌里盲挑 1 张拿走 ---------------- */
+async function resolveSteal(victimCard){
+  const s = state.steal;
+  if(!s || state.busy) return;
+  const thief = s.thief, victim = s.victim;
+  const card = state.hands[victim].find(c => c.id === victimCard.id);
+  if(!card) return;
+
+  state.busy = true;
+  state.selected = null;
+  renderBanner();
+  await flyTo(facedownEls.get(card.id), zoneSel(thief));   // 暗牌飞向偷牌的人
+
+  state.hands[victim] = state.hands[victim].filter(c => c !== card);
+  card._new = true;                     // 进手牌时翻开、播放动画
+  state.hands[thief].push(card);
+  state.steal = null;
+  facedownEls = new Map();
+  state.busy = false;
+  state.phase = 'playing';              // 回到行动阶段：本回合动作已用完，只剩「结束回合」
+  state.selected = null;
+  state.notice = '';
+  render();
+  beep(880, .1, 'triangle', .05);
+  log(`从 ${PLAYERS[victim].label} 手上拿走 1 张牌（盲挑 · 牌面只有拿到的人能看到）`, 'p' + thief);
+}
+
+/* 结束本局 */
+function finishGame(winner, reason){
+  state.phase = 'done';
+  state.selected = null;
+  state.drawnIds = [];
+  state.used = false;
+  state.busy = false;
+  state.turnAction = null;
+  state.dodge = null;
+  state.dodgeResolved = false;
+  state.steal = null;
+  state.negate = null;
+  state.negateResolved = false;
+  state.returnTo = 'playing';
+  state.dblReady = [false,false];
+  facedownEls = new Map();
+  state.over = {winner, reason};
+  render();
+  log(reason + (winner === null ? '' : ` · ${PLAYERS[winner].label} 赢下本局`), 'sys');
+  beep(523, .2, 'triangle', .05);
+}
+
+function endTurn(){
+  if(state.phase !== 'playing' || state.busy) return;
+
+  const p = state.turn;
+  const next = 1 - p;
+
+  // 必须先做一个动作（弃 1 张 或 打 1 张攻击）才能结束回合
+  if(!state.used && state.hands[p].length > 0){
+    state.notice = '本回合必须先做一个动作：弃 1 张，或打 1 张攻击';
+    render();
+    log(`${PLAYERS[p].label} 这回合还没出牌，不能结束回合`, 'sys');
+    return;
+  }
+
+  state.selected = null;
+  state.notice = '';
+  state.drawnIds = [];
+  state.used = false;                        // 下家重新获得 1 个动作
+  state.turnAction = null;
+  state.lastTurn = p;
+  state.turn = next;
+  log(`结束回合，交给 ${PLAYERS[next].label}`, 'sys');
+  drawForTurn(next);                       // 下家回合开始：手牌补至 4 张
+
+  if(state.hands[next].length === 0){
+    // 牌堆 + 弃牌堆都空了，连一张都补不上 → 本局收尾（谁也没被打倒）
+    finishGame(null, '所有牌都打完了');
+    return;
+  }
+
+  state.phase = 'handoff';
+  state.handoffMode = 'turn';
+  render();                                   // 先把所有手牌收起
+  showHandoff();                              // 立即全屏遮住，不露出任何牌
+}
+
+function pick(p, cardId){
+  // 偷取挑牌：点到对方任意一张暗牌，立即把它拿走
+  if(state.phase === 'steal'){
+    if(state.busy || !state.steal || state.steal.victim !== p) return;
+    const c = state.hands[p].find(x => x.id === cardId);
+    if(c) resolveSteal(c);
+    return;
+  }
+
+  const judge = state.phase === 'dodge';
+  const negJudge = state.phase === 'negate';
+  if(!judge && !negJudge && state.phase !== 'playing') return;
+  if(state.busy || state.dodgeResolved || state.negateResolved) return;
+
+  if(judge){
+    if(!state.dodge || state.dodge.defender !== p) return;
+    const c = state.hands[p].find(x => x.id === cardId);
+    if(!c || !c.dodge) return;               // 判定时只能点闪避牌
+  } else if(negJudge){
+    if(!state.negate || state.negate.victim !== p) return;
+    const c = state.hands[p].find(x => x.id === cardId);
+    if(!c || !c.neg) return;                 // 抵消判定时只能点抵消牌
+  } else {
+    if(state.turn !== p) return;
+    if(state.used) return;                   // 本回合的动作已经做完了
+    const c = state.hands[p].find(x => x.id === cardId);
+    if(!c) return;                           // 点普通牌=弃掉，点攻击牌=打出去
+  }
+
+  state.notice = '';
+  state.selected = state.selected === cardId ? null : cardId;
+  handEls.forEach((el, id) => el.classList.toggle('selected', id === state.selected));
+  renderBanner();
+}
+
+/* 回合内：选中普通牌 → 弃掉；选中攻击牌 → 打出去；选中偷取牌且有牌可偷 → 进入挑牌。
+   闪避判定：选中闪避牌 → 挡住；抵消判定：选中抵消牌 → 废掉这次偷取 */
+function confirmAction(){
+  if(state.phase === 'dodge'){ useDodge(); return; }
+  if(state.phase === 'negate'){ useNegate(); return; }
+  if(state.phase !== 'playing' || state.busy || !state.selected) return;
+  const card = state.hands[state.turn].find(c => c.id === state.selected);
+  if(!card) return;
+  if(!canDiscard(card) && !card.atk) return;
+  commitAction(card);
+}
+
+/* ---------------- 事件 ---------------- */
+document.addEventListener('click', e => {
+  state.userActed = true;
+  const el = e.target.closest('.card');
+  if(!el || !el.classList.contains('selectable')) return;
+  const wrap = el.closest('.hand');
+  if(!wrap) return;
+  pick(Number(wrap.dataset.player), el.dataset.id);
+});
+
+$('#confirmBtn').addEventListener('click', confirmAction);
+$('#skillBtn').addEventListener('click', useSkillBtn);
+$('#endBtn').addEventListener('click', () => {
+  if(state.phase === 'dodge'){ acceptHit(); return; }        // 闪避判定：这个按钮 = 承受伤害
+  if(state.phase === 'negate'){ declineNegate(); return; }   // 抵消判定：这个按钮 = 不抵消
+  endTurn();
+});
+$('#hoBtn').addEventListener('click', takeOver);
+$('#newBtn').addEventListener('click', newGame);
+$('#soundBtn').addEventListener('click', e => {
+  state.sound = !state.sound;
+  e.currentTarget.classList.toggle('on', state.sound);
+  e.currentTarget.textContent = state.sound ? '🔊 音效' : '🔇 静音';
+  if(state.sound) beep(660, .07, 'triangle', .05);
+});
+
+document.addEventListener('keydown', e => {
+  const k = (e.key || '').toLowerCase();
+  if(e.key === 'Escape' && (state.phase === 'playing' || state.phase === 'dodge' || state.phase === 'negate')){
+    state.selected = null;
+    handEls.forEach(el => el.classList.remove('selected'));
+    renderBanner();
+    return;
+  }
+  if(state.phase === 'handoff'){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); takeOver(); }
+    return;
+  }
+  if(k === 'n' && !state.busy){ newGame(); return; }
+
+  // 偷取挑牌：1/2/3/4 直接挑走对方第 N 张暗牌
+  if(state.phase === 'steal'){
+    if(state.busy || !state.steal) return;
+    if(['1','2','3','4'].includes(e.key)){
+      const c = state.hands[state.steal.victim][Number(e.key) - 1];
+      if(c) resolveSteal(c);
+    }
+    return;
+  }
+
+  // 闪避判定：1/2/3/4 选闪避牌，Enter 挡住，E 承受伤害
+  if(state.phase === 'dodge'){
+    if(state.busy || state.dodgeResolved) return;
+    if(['1','2','3','4'].includes(e.key)){
+      const c = state.hands[state.dodge.defender].filter(x => x.dodge)[Number(e.key) - 1];
+      if(c) pick(state.dodge.defender, c.id);
+    }
+    if(e.key === 'Enter') useDodge();
+    if(k === 'e') acceptHit();
+    if(k === 's') cancelAttack();
+    return;
+  }
+
+  // 抵消判定：1/2/3/4 选抵消牌，Enter 挡下，E 不抵消、让他挑
+  if(state.phase === 'negate'){
+    if(state.busy || state.negateResolved) return;
+    if(['1','2','3','4'].includes(e.key)){
+      const c = state.hands[state.negate.victim].filter(x => x.neg)[Number(e.key) - 1];
+      if(c) pick(state.negate.victim, c.id);
+    }
+    if(e.key === 'Enter') useNegate();
+    if(k === 'e') declineNegate();
+    return;
+  }
+
+  if(state.phase !== 'playing' || state.busy) return;
+  if(['1','2','3','4','5'].includes(e.key)){
+    const c = state.hands[state.turn][Number(e.key) - 1];
+    if(c) pick(state.turn, c.id);
+  }
+  if(e.key === 'Enter') confirmAction();
+  if(k === 's') useSkillBtn();
+  if(k === 'e') endTurn();
+});
+
+/* ---------------- 启动 ---------------- */
+render();
+log('点击「重新发牌」开始', 'sys');
+</script>
+</body>
+</html>
