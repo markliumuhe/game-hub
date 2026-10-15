@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小游戏乐园 · 在线小游戏</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --line: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --brand: #ff6b35;
+    --brand2: #ffb703;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+    min-height: 100vh;
+  }
+  a { text-decoration: none; color: inherit; }
+
+  header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 18px;
+    padding: 12px 22px;
+    background: rgba(13, 17, 23, .82);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 22px; font-weight: 900; letter-spacing: 1px;
+    background: linear-gradient(92deg, var(--brand), var(--brand2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    white-space: nowrap;
+  }
+  .logo span { font-size: 24px; -webkit-text-fill-color: initial; color: initial; }
+  .search {
+    flex: 1; max-width: 420px; position: relative;
+  }
+  .search input {
+    width: 100%; height: 40px; padding: 0 16px 0 40px;
+    border-radius: 999px; border: 1px solid var(--line);
+    background: #0b0f14; color: var(--text); font-size: 14px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,.15); }
+  .search::before {
+    content: "🔍"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; opacity: .7;
+  }
+  .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .count b { color: var(--brand2); }
+
+  .hero {
+    margin: 26px auto 8px; max-width: 1180px; padding: 0 22px;
+  }
+  .hero-card {
+    position: relative; overflow: hidden;
+    border-radius: 20px; padding: 34px 34px;
+    background: radial-gradient(120% 160% at 0% 0%, #2b1a12 0%, #161b22 55%), var(--panel);
+    border: 1px solid var(--line);
+  }
+  .hero-card::after {
+    content: "🎮"; position: absolute; right: 30px; bottom: -18px;
+    font-size: 130px; opacity: .12; transform: rotate(-12deg);
+  }
+  .hero h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: 2px; }
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(92deg, var(--brand), var(--brand2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+
+  .section { max-width: 1180px; margin: 0 auto; padding: 18px 22px 60px; }
+  .section-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 800; letter-spacing: 1px; margin: 22px 0 16px;
+  }
+  .section-title::before {
+    content: ""; width: 6px; height: 20px; border-radius: 4px;
+    background: linear-gradient(var(--brand), var(--brand2));
+  }
+
+  .grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .card {
+    position: relative; display: block; overflow: hidden;
+    border-radius: 14px; border: 1px solid var(--line);
+    background: var(--panel);
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  .card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255,107,53,.6);
+    box-shadow: 0 16px 36px rgba(0,0,0,.5);
+  }
+  .thumb {
+    position: relative; aspect-ratio: 16 / 10; overflow: hidden; background: #0b0f14;
+  }
+  .thumb img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform .35s ease;
+  }
+  .card:hover .thumb img { transform: scale(1.07); }
+  .thumb::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.72) 100%);
+  }
+  .play {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.7);
+    width: 58px; height: 58px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand), var(--brand2));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 22px; z-index: 3;
+    opacity: 0; transition: opacity .2s ease, transform .2s ease;
+    box-shadow: 0 8px 20px rgba(255,107,53,.5);
+  }
+  .card:hover .play { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  .tag {
+    position: absolute; top: 10px; left: 10px; z-index: 3;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.22);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .meta { padding: 13px 15px 15px; }
+  .meta h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+  .meta p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 12.5px;
+    padding: 26px 20px 40px; border-top: 1px solid var(--line);
+  }
+  footer a { color: var(--accent); }
+
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span>🎮</span>小游戏乐园</div>
+    <div class="search">
+      <input id="q" type="text" placeholder="搜索游戏，例如：迷宫 / 枪战 / 泡泡">
+    </div>
+    <div class="count">共 <b id="total">3</b> 款游戏</div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-card">
+      <h1>随便玩点<em>小游戏</em></h1>
+      <p>精选自制 HTML5 小游戏，点开即玩，无需下载。适合手机和电脑，摸鱼必备。</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">全部游戏</div>
+    <div class="grid" id="grid">
+
+      <a class="card" href="games/maze/index.html" data-name="迷宫地图 迷宫 maze 迷雾 鬼">
+        <div class="thumb">
+          <span class="tag">解谜</span>
+          <img src="thumbs/maze.png" alt="迷宫地图">
+          <span class="play">▶</span>
+        </div>
+        <div class="meta">
+          <h3>🧩 迷宫地图</h3>
+          <p>在迷雾中从入口走到出口，躲开追你的鬼，支持方向键与触屏摇杆。</p>
+        </div>
+      </a>
+
+      <a class="card" href="games/shooter/index.html" data-name="第三人称枪战 第一人称 fps 射击 shooter 枪战">
+        <div class="thumb">
+          <span class="tag">射击</span>
+          <img src="thumbs/shooter.png" alt="第三人称枪战">
+          <span class="play">▶</span>
+        </div>
+        <div class="meta">
+          <h3>🔫 第三人称枪战</h3>
+          <p>3D 场景射击，消灭一波波敌人。WASD 移动、鼠标瞄准、左键射击、E 治疗。</p>
+        </div>
+      </a>
+
+      <a class="card" href="games/bubble/index.html" data-name="解压泡泡纸 泡泡 解压 bubble 放置 挂机">
+        <div class="thumb">
+          <span class="tag">休闲</span>
+          <img src="thumbs/bubble.png" alt="解压泡泡纸">
+          <span class="play">▶</span>
+        </div>
+        <div class="meta">
+          <h3>🫧 解压泡泡纸</h3>
+          <p>戳泡泡解压，攒次数开自动，解锁彩虹泡泡的放置小游戏。</p>
+        </div>
+      </a>
+
+    </div>
+    <div class="empty" id="empty" style="display:none">没有找到相关游戏 🥲</div>
+  </div>
+
+  <footer>
+    小游戏乐园 · 由 <a href="https://github.com/" target="_blank" rel="noopener">GitHub Pages</a> 托管 · 游戏均为自制
+  </footer>
+
+  <script>
+    const q = document.getElementById('q');
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const empty = document.getElementById('empty');
+    const total = document.getElementById('total');
+    total.textContent = cards.length;
+
+    q.addEventListener('input', () => {
+      const kw = q.value.trim().toLowerCase();
+      let shown = 0;
+      cards.forEach((c) => {
+        const hay = ((c.dataset.name || '') + ' ' + c.textContent).toLowerCase();
+        const ok = !kw || hay.includes(kw);
+        c.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+      empty.style.display = shown ? 'none' : '';
+    });
+  </script>
+</body>
+</html>
